@@ -1,0 +1,31 @@
+{
+    "name": "sierra-react-native",
+    "version": "1.0.0",
+    "description": "React Native SDK for Sierra chat agents using WebViews",
+    "main": "index.ts",
+    "keywords": [
+        "react-native",
+        "sierra",
+        "chat",
+        "ai",
+        "webview"
+    ],
+    "author": "Sierra",
+    "license": "SEE LICENSE IN LICENSE",
+    "dependencies": {
+        "react-native-webview": ">=11.0.0"
+    },
+    "peerDependencies": {
+        "react": ">=16.8.0",
+        "react-native": ">=0.60.0"
+    },
+    "devDependencies": {
+        "react": "^18.2.0",
+        "react-native": "^0.71.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/sierra/sierra-react-native-sdk"
+    },
+    "homepage": "https://github.com/sierra/sierra-react-native-sdk#readme"
+}

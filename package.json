@@ -12,12 +12,10 @@
     ],
     "author": "Sierra",
     "license": "SEE LICENSE IN LICENSE",
-    "dependencies": {
-        "react-native-webview": ">=11.0.0"
-    },
     "peerDependencies": {
         "react": ">=16.8.0",
-        "react-native": ">=0.60.0"
+        "react-native": ">=0.60.0",
+        "react-native-webview": ">=11.0.0"
     },
     "devDependencies": {
         "react": "^18.2.0",

@@ -2,7 +2,7 @@
 
 import React, { useRef, forwardRef } from "react";
 import { View, StyleSheet, ViewStyle, Platform } from "react-native";
-import { WebView } from "react-native-webview";
+import WebView from "react-native-webview";
 import { ConversationTransfer } from "../models/ConversationTypes";
 import { Agent } from "../Agent";
 
@@ -69,7 +69,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                             // Update the WebView's sync storage
                             if (webViewRef.current) {
                                 webViewRef.current.injectJavaScript(`
-                                    window._sierraSyncStorage['${
+                                    window.__sierraSyncStorage['${
                                         message.data.key
                                     }'] = ${JSON.stringify(message.data.value)};
                                     true;
@@ -85,7 +85,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                         // Clear the WebView's sync storage
                         if (webViewRef.current) {
                             webViewRef.current.injectJavaScript(`
-                                window._sierraSyncStorage = {};
+                                window.__sierraSyncStorage = {};
                                 true;
                             `);
                         }
@@ -108,7 +108,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
 
                         if (webViewRef.current) {
                             webViewRef.current.injectJavaScript(`
-                                window._sierraSyncStorage = {};
+                                window.__sierraSyncStorage = {};
                                 true;
                             `);
                         }
@@ -144,7 +144,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                         setupWebViewStorage();
                     }}
                     onError={error => {
-                        console.log(`WebView error: ${JSON.stringify(error)}`);
+                        console.log(`WebView error: ${error.nativeEvent.description}`);
                     }}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}

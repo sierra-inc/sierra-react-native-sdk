@@ -1,6 +1,6 @@
 // Copyright Sierra
 
-import React, { useRef, forwardRef } from "react";
+import React, { useRef, forwardRef, ReactElement } from "react";
 import { View, StyleSheet, ViewStyle, Platform } from "react-native";
 import WebView from "react-native-webview";
 import { ConversationTransfer } from "../models/ConversationTypes";
@@ -9,7 +9,7 @@ import { Agent } from "../Agent";
 interface SierraAgentViewProps {
     agent: Agent;
     style?: ViewStyle;
-    loadingView?: () => React.ReactNode;
+    renderLoading?: () => ReactElement;
     onConversationTransfer?: (transfer: ConversationTransfer) => void;
     onAgentMessageEnd?: () => void;
     onEndChat?: () => void;
@@ -45,7 +45,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
         {
             agent,
             style,
-            loadingView,
+            renderLoading,
             onConversationTransfer,
             onAgentMessageEnd,
             onEndChat,
@@ -151,7 +151,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                     startInLoadingState={true}
                     scrollEnabled={true}
                     originWhitelist={[agent.getEmbedOrigin()]}
-                    renderLoading={loadingView}
+                    renderLoading={renderLoading}
                 />
             </View>
         );

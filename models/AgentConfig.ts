@@ -20,9 +20,9 @@ export class AgentConfig {
      * @param token - The agent token
      * @param apiHost - The API host to use
      */
-    constructor(token: string, apiHost: AgentAPIHostType) {
+    constructor(token: string, apiHost?: AgentAPIHostType) {
         this.token = token;
-        this.apiHost = apiHost;
+        this.apiHost = apiHost || AgentAPIHostType.PROD;
     }
 
     /**

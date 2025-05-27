@@ -55,6 +55,11 @@ export class Agent {
 
         const params = new URLSearchParams();
 
+        // Add the specific release target for the agent
+        if (config.target) {
+            params.append("target", config.target);
+        }
+
         // Should match the Brand type from bots/useChat.tsx
         const brandJSON = JSON.stringify({
             botName: options.name ?? "Your virtual assistant",
@@ -112,6 +117,10 @@ export class Agent {
 
         if (options.canEndConversation) {
             params.append("canEndConversation", "true");
+        }
+
+        if (options.canStartNewChat) {
+            params.append("canStartNewChat", "true");
         }
 
         return `${config.url}?${params.toString()}`;

@@ -14,14 +14,16 @@ export enum AgentAPIHostType {
  */
 export class AgentConfig {
     token: string;
+    target?: string;
     apiHost: AgentAPIHostType;
 
     /**
      * @param token - The agent token
      * @param apiHost - The API host to use
      */
-    constructor(token: string, apiHost?: AgentAPIHostType) {
+    constructor(token: string, target?: string, apiHost?: AgentAPIHostType) {
         this.token = token;
+        this.target = target;
         this.apiHost = apiHost || AgentAPIHostType.PROD;
     }
 

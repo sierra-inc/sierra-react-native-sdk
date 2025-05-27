@@ -21,4 +21,5 @@ export interface ChatOptions {
     conversationOptions?: ConversationOptions;
     canPrintTranscript?: boolean;
     canEndConversation?: boolean;
+    canStartNewChat?: boolean;
 }

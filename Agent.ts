@@ -2,6 +2,7 @@
 
 import { AgentConfig } from "./models/AgentConfig";
 import { ChatOptions } from "./models/ChatOptions";
+import { ChatStyleOptions } from "./models/ChatStyle";
 
 /**
  * Main agent class that handles Sierra chat functionality
@@ -73,7 +74,7 @@ export class Agent {
             agentJoinedMessage: options.agentJoinedMessage ?? "Agent connected",
             agentLeftMessage: options.agentLeftMessage ?? "Agent disconnected",
             conversationEndedMessage: options.conversationEndedMessage ?? "Chat Ended",
-            chatStyle: options.chatStyle ? JSON.stringify(options.chatStyle) : undefined,
+            chatStyle: options.chatStyle ? this.transformChatStyle(options.chatStyle) : undefined,
         });
 
         params.append("brand", brandJSON);
@@ -124,6 +125,33 @@ export class Agent {
         }
 
         return `${config.url}?${params.toString()}`;
+    }
+
+    private transformChatStyle(chatStyle: ChatStyleOptions): string {
+        if (!chatStyle) return JSON.stringify({});
+
+        // Create a clean new object with only the properties we need
+        const result: any = {
+            colors: chatStyle.colors,
+        };
+
+        // Transform typography to type to match the ChatStyle type from ui/chat/chat.tsx
+        if (chatStyle.typography) {
+            const type: any = {
+                ...chatStyle.typography,
+            };
+
+            // Set all responsive font sizes
+            if (chatStyle.typography.fontSize !== undefined) {
+                type.fontSize900 = chatStyle.typography.fontSize;
+                type.fontSize750 = chatStyle.typography.fontSize;
+                type.fontSize500 = chatStyle.typography.fontSize;
+            }
+
+            result.type = type;
+        }
+
+        return JSON.stringify(result);
     }
 }
 

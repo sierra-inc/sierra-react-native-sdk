@@ -16,8 +16,22 @@ export interface ChatStyleColors {
 }
 
 /**
+ * Type for ChatStyleTypography options
+ */
+export interface ChatStyleTypography {
+    /**
+     * The font family, a comma-separated list of font names.
+     * Note: Only built-in system fonts are supported. Custom fonts loaded by the app are not available.
+     */
+    fontFamily?: string;
+    /** The font size, in pixels. */
+    fontSize?: number;
+}
+
+/**
  * Type for ChatStyle options
  */
 export interface ChatStyleOptions {
     colors?: ChatStyleColors;
+    typography?: ChatStyleTypography;
 }

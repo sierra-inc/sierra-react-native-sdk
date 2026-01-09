@@ -64,20 +64,25 @@ export class Agent {
         // Should match the Brand type from bots/useChat.tsx
         const brandJSON = JSON.stringify({
             botName: options.name ?? "Your virtual assistant",
+            greetingMessage: options.greetingMessage ?? "How can I help you today?",
             errorMessage:
                 options.errorMessage ?? "Oops, an error was encountered! Please try again.",
-            greetingMessage: options.greetingMessage ?? "How can I help you today?",
-            disclosure: options.disclosure,
-            inputPlaceholder: options.inputPlaceholder ?? "Message…",
             agentTransferWaitingMessage:
                 options.agentTransferWaitingMessage ?? "Waiting for agent…",
             agentJoinedMessage: options.agentJoinedMessage ?? "Agent connected",
             agentLeftMessage: options.agentLeftMessage ?? "Agent disconnected",
-            conversationEndedMessage: options.conversationEndedMessage ?? "Chat Ended",
             chatStyle: options.chatStyle ? this.transformChatStyle(options.chatStyle) : undefined,
         });
 
         params.append("brand", brandJSON);
+
+        // Subset of the ChatUiStrings type from chat/ui-strings.ts
+        const chatInterfaceStrings = JSON.stringify({
+            inputPlaceholder: options.inputPlaceholder ?? "",
+            disclosure: options.disclosure ?? "",
+            conversationEndedMessage: options.conversationEndedMessage ?? "",
+        });
+        params.append("chatInterfaceStrings", chatInterfaceStrings);
 
         if (options.hideTitleBar) {
             params.append("hideTitleBar", "true");
@@ -122,6 +127,22 @@ export class Agent {
 
         if (options.canStartNewChat) {
             params.append("canStartNewChat", "true");
+        }
+
+        if (options.startAtTop) {
+            params.append("startAtTop", "true");
+        }
+
+        if (options.pinDisclosure) {
+            params.append("pinDisclosure", "true");
+        }
+
+        if (options.useConfiguredChatStrings) {
+            params.append("useConfiguredChatStrings", "true");
+        }
+
+        if (options.useConfiguredStyle) {
+            params.append("useConfiguredStyle", "true");
         }
 
         return `${config.url}?${params.toString()}`;

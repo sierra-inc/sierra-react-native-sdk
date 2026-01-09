@@ -1,7 +1,8 @@
 // Copyright Sierra
 
 /**
- * Type for ChatStyleColors options
+ * Type for ChatStyleColors options.
+ * Overridden by server-configured styles if useConfiguredStyle is true in ChatOptions.
  */
 export interface ChatStyleColors {
     background?: string;
@@ -16,7 +17,8 @@ export interface ChatStyleColors {
 }
 
 /**
- * Type for ChatStyleTypography options
+ * Type for ChatStyleTypography options.
+ * Overridden by server-configured styles if useConfiguredStyle is true in ChatOptions.
  */
 export interface ChatStyleTypography {
     /**
@@ -29,7 +31,9 @@ export interface ChatStyleTypography {
 }
 
 /**
- * Type for ChatStyle options
+ * Type for ChatStyle options.
+ * Overridden by server-configured styles if useConfiguredStyle is true in ChatOptions.
+ * Server-configured styles provide a centralized way to manage chat appearance across all platforms.
  */
 export interface ChatStyleOptions {
     colors?: ChatStyleColors;

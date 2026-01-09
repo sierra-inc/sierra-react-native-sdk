@@ -2,17 +2,17 @@
 
 import { Agent } from "./Agent";
 import { AgentConfig, AgentAPIHostType } from "./models/AgentConfig";
-import { ChatStyleOptions } from "./models/ChatStyle";
-import { ConversationOptions } from "./models/ConversationTypes";
-import { ChatOptions } from "./models/ChatOptions";
+import { type ChatStyleOptions } from "./models/ChatStyle";
+import { type ConversationOptions } from "./models/ConversationTypes";
+import { type ChatOptions } from "./models/ChatOptions";
 import SierraAgentView from "./components/SierraAgentView";
 
 export {
     Agent,
     AgentConfig,
-    ChatOptions,
-    ChatStyleOptions,
-    ConversationOptions,
+    type ChatOptions,
+    type ChatStyleOptions,
+    type ConversationOptions,
     SierraAgentView,
     AgentAPIHostType,
 };

@@ -7,6 +7,7 @@
 export enum AgentAPIHostType {
     PROD = "prod",
     EU = "eu",
+    SG = "sg",
     STAGING = "staging",
     LOCAL = "local",
 }
@@ -42,6 +43,8 @@ export class AgentConfig {
                 return "https://sierra.chat";
             case AgentAPIHostType.EU:
                 return "https://eu.sierra.chat";
+            case AgentAPIHostType.SG:
+                return "https://sg.sierra.chat";
             case AgentAPIHostType.STAGING:
                 return "https://staging.sierra.chat";
             case AgentAPIHostType.LOCAL:

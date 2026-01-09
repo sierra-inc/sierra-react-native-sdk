@@ -74,7 +74,7 @@ export class ConversationCallbacks {
      * external agent.
      * @param transfer - Information about the transfer
      */
-    onConversationTransfer(transfer: ConversationTransfer): void {}
+    onConversationTransfer(_transfer: ConversationTransfer): void {}
 
     /**
      * Callback invoked when the virtual agent finishes replying to the user.

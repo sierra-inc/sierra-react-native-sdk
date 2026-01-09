@@ -1,8 +1,12 @@
 // Copyright Sierra
 
-import React, { useRef, forwardRef, ReactElement } from "react";
+import React, { useCallback, useRef, forwardRef, ReactElement } from "react";
 import { View, StyleSheet, ViewStyle, Platform } from "react-native";
 import WebView from "react-native-webview";
+import type {
+    WebViewErrorEvent,
+    WebViewHttpErrorEvent,
+} from "react-native-webview/lib/WebViewTypes";
 import { ConversationTransfer } from "../models/ConversationTypes";
 import { Agent } from "../Agent";
 
@@ -13,6 +17,8 @@ interface SierraAgentViewProps {
     onConversationTransfer?: (transfer: ConversationTransfer) => void;
     onAgentMessageEnd?: () => void;
     onEndChat?: () => void;
+    onError?: (event: WebViewErrorEvent) => void;
+    onHttpError?: (event: WebViewHttpErrorEvent) => void;
 }
 
 /**
@@ -49,10 +55,23 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
             onConversationTransfer,
             onAgentMessageEnd,
             onEndChat,
+            onError,
+            onHttpError,
         }: SierraAgentViewProps,
         ref: React.Ref<WebView>
     ) => {
         const webViewRef = useRef<WebView>(null);
+        const setWebViewRef = useCallback(
+            (instance: WebView | null) => {
+                webViewRef.current = instance;
+                if (typeof ref === "function") {
+                    ref(instance);
+                } else if (ref) {
+                    ref.current = instance;
+                }
+            },
+            [ref]
+        );
 
         // Handle messages from the WebViewMessageEvent
         const handleMessage = (event: any) => {
@@ -136,16 +155,18 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
             <View style={[styles.container, style]}>
                 <WebView
                     userAgent={getUserAgent()}
-                    ref={webViewRef}
+                    ref={setWebViewRef}
                     source={{ uri: agent.getEmbedUrl() }}
                     style={styles.webView}
                     onMessage={handleMessage}
                     onLoadEnd={() => {
                         setupWebViewStorage();
                     }}
-                    onError={error => {
+                    onError={(error: WebViewErrorEvent) => {
                         console.log(`WebView error: ${error.nativeEvent.description}`);
+                        onError?.(error);
                     }}
+                    onHttpError={onHttpError}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
                     startInLoadingState={true}

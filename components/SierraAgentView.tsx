@@ -7,7 +7,7 @@ import type {
     WebViewErrorEvent,
     WebViewHttpErrorEvent,
 } from "react-native-webview/lib/WebViewTypes";
-import { ConversationTransfer } from "../models/ConversationTypes";
+import { ConversationTransfer, SecretExpiryReplyHandler } from "../models/ConversationTypes";
 import { Agent } from "../Agent";
 
 interface SierraAgentViewProps {
@@ -19,6 +19,13 @@ interface SierraAgentViewProps {
     onEndChat?: () => void;
     onError?: (event: WebViewErrorEvent) => void;
     onHttpError?: (event: WebViewHttpErrorEvent) => void;
+    /**
+     * Callback invoked when a secret needs to be refreshed. Reply handler should be invoked with one of:
+     * - { value: newValue } - a new value for the secret
+     * - { value: null } - if the secret cannot be provided due to a known condition (e.g. the user has signed out)
+     * - { error: errorMessage } - if the secret cannot be fetched right now, but the request should be retried
+     */
+    onSecretExpiry?: (secretName: string, replyHandler: SecretExpiryReplyHandler) => void;
 }
 
 /**
@@ -41,6 +48,11 @@ type WebViewMessage =
       }
     | {
           type: "onEndChat";
+      }
+    | {
+          type: "onSecretExpiry";
+          secretName: string;
+          callbackId: string;
       };
 
 /**
@@ -57,6 +69,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
             onEndChat,
             onError,
             onHttpError,
+            onSecretExpiry,
         }: SierraAgentViewProps,
         ref: React.Ref<WebView>
     ) => {
@@ -132,6 +145,27 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                             `);
                         }
                         onEndChat?.();
+                        break;
+
+                    case "onSecretExpiry":
+                        if (onSecretExpiry) {
+                            onSecretExpiry(message.secretName, result => {
+                                if (webViewRef.current) {
+                                    const jsCode =
+                                        "error" in result
+                                            ? `window.__sierraResolveCallback(${JSON.stringify(message.callbackId)}, null, ${JSON.stringify(result.error)}); true;`
+                                            : `window.__sierraResolveCallback(${JSON.stringify(message.callbackId)}, ${JSON.stringify(result.value)}); true;`;
+                                    webViewRef.current.injectJavaScript(jsCode);
+                                }
+                            });
+                        } else {
+                            // No handler provided, resolve with null
+                            if (webViewRef.current) {
+                                webViewRef.current.injectJavaScript(
+                                    `window.__sierraResolveCallback(${JSON.stringify(message.callbackId)}, null); true;`
+                                );
+                            }
+                        }
                         break;
                 }
             } catch (error) {

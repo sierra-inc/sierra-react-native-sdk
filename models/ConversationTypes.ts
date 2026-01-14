@@ -66,6 +66,16 @@ export class ConversationTransfer {
 }
 
 /**
+ * Result type for secret expiry callback responses.
+ */
+export type SecretExpiryResult = { value: string | null } | { error: string };
+
+/**
+ * Reply handler type for secret expiry callbacks.
+ */
+export type SecretExpiryReplyHandler = (result: SecretExpiryResult) => void;
+
+/**
  * Callbacks for conversation events
  */
 export class ConversationCallbacks {
@@ -86,4 +96,16 @@ export class ConversationCallbacks {
      * Callback invoked when the conversation ends.
      */
     onConversationEnded(): void {}
+
+    /**
+     * Callback invoked when a secret needs to be refreshed. Reply handler should be invoked with one of:
+     * - { value: newValue } - a new value for the secret
+     * - { value: null } - if the secret cannot be provided due to a known condition (e.g. the user has signed out)
+     * - { error: errorMessage } - if the secret cannot be fetched right now, but the request should be retried
+     * @param secretName - The name of the secret that needs refreshing
+     * @param replyHandler - Function to call with the refresh result
+     */
+    onSecretExpiry(_secretName: string, replyHandler: SecretExpiryReplyHandler): void {
+        replyHandler({ value: null });
+    }
 }

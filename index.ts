@@ -1,6 +1,6 @@
 // Copyright Sierra
 
-import { Agent } from "./Agent";
+import { Agent, AgentSessionStorage } from "./Agent";
 import { AgentConfig, AgentAPIHostType } from "./models/AgentConfig";
 import { type ChatStyleOptions } from "./models/ChatStyle";
 import {
@@ -9,6 +9,8 @@ import {
     type SecretExpiryReplyHandler,
 } from "./models/ConversationTypes";
 import { type ChatOptions } from "./models/ChatOptions";
+import { PersistenceMode } from "./models/PersistenceMode";
+import { ConversationStorage, type StorageAdapter } from "./models/ConversationStorage";
 import SierraAgentView from "./components/SierraAgentView";
 
 export {
@@ -21,4 +23,9 @@ export {
     type SecretExpiryReplyHandler,
     SierraAgentView,
     AgentAPIHostType,
+    PersistenceMode,
+    ConversationStorage,
+    type StorageAdapter,
+    /** @deprecated Use ConversationStorage instead */
+    AgentSessionStorage,
 };

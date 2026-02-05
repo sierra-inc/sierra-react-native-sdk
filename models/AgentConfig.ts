@@ -1,5 +1,7 @@
 // Copyright Sierra
 
+import { PersistenceMode } from "./PersistenceMode";
+
 /**
  * Enum for API host environments
  * @readonly
@@ -18,15 +20,24 @@ export class AgentConfig {
     token: string;
     target?: string;
     apiHost: AgentAPIHostType;
+    persistence: PersistenceMode;
 
     /**
      * @param token - The agent token
+     * @param target - Optional release target name
      * @param apiHost - The API host to use
+     * @param persistence - How conversation state is persisted (default: MEMORY)
      */
-    constructor(token: string, target?: string, apiHost?: AgentAPIHostType) {
+    constructor(
+        token: string,
+        target?: string,
+        apiHost?: AgentAPIHostType,
+        persistence?: PersistenceMode
+    ) {
         this.token = token;
         this.target = target;
         this.apiHost = apiHost || AgentAPIHostType.PROD;
+        this.persistence = persistence || PersistenceMode.MEMORY;
     }
 
     /**

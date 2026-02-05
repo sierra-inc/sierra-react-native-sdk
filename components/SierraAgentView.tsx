@@ -1,7 +1,7 @@
 // Copyright Sierra
 
-import React, { useCallback, useRef, forwardRef, ReactElement } from "react";
-import { View, StyleSheet, ViewStyle, Platform } from "react-native";
+import React, { useCallback, useRef, forwardRef, ReactElement, useState, useEffect } from "react";
+import { View, StyleSheet, ViewStyle, Platform, ActivityIndicator } from "react-native";
 import WebView from "react-native-webview";
 import type {
     WebViewErrorEvent,
@@ -74,6 +74,23 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
         ref: React.Ref<WebView>
     ) => {
         const webViewRef = useRef<WebView>(null);
+        const [isStorageReady, setIsStorageReady] = useState(false);
+
+        // Wait for storage to load before rendering the WebView.
+        // This ensures conversation state is properly restored for DISK mode.
+        useEffect(() => {
+            setIsStorageReady(false);
+            let mounted = true;
+            agent.waitForLoad().then(() => {
+                if (mounted) {
+                    setIsStorageReady(true);
+                }
+            });
+            return () => {
+                mounted = false;
+            };
+        }, [agent]);
+
         const setWebViewRef = useCallback(
             (instance: WebView | null) => {
                 webViewRef.current = instance;
@@ -96,14 +113,15 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                     case "storeValue":
                         if (message.data?.key && message.data?.value !== undefined) {
                             // Update the agent's storage
-                            agent.getSessionStorage().setItem(message.data.key, message.data.value);
+                            agent.getStorage().setItem(message.data.key, message.data.value);
 
-                            // Update the WebView's sync storage
+                            // Update the WebView's sync storage, initializing if needed
                             if (webViewRef.current) {
                                 webViewRef.current.injectJavaScript(`
-                                    window.__sierraSyncStorage['${
+                                    window.__sierraSyncStorage = window.__sierraSyncStorage || {};
+                                    window.__sierraSyncStorage[${JSON.stringify(
                                         message.data.key
-                                    }'] = ${JSON.stringify(message.data.value)};
+                                    )}] = ${JSON.stringify(message.data.value)};
                                     true;
                                 `);
                             }
@@ -112,7 +130,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
 
                     case "clearStorage":
                         // Update the agent's storage
-                        agent.getSessionStorage().clear();
+                        agent.getStorage().clear();
 
                         // Clear the WebView's sync storage
                         if (webViewRef.current) {
@@ -136,7 +154,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                         break;
 
                     case "onEndChat":
-                        agent.getSessionStorage().clear();
+                        agent.getStorage().clear();
 
                         if (webViewRef.current) {
                             webViewRef.current.injectJavaScript(`
@@ -173,17 +191,22 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
             }
         };
 
-        const setupWebViewStorage = () => {
-            if (!webViewRef.current) return;
+        // Show loading state while waiting for storage to load from disk.
+        // This prevents the WebView from initializing with empty storage.
+        if (!isStorageReady) {
+            return (
+                <View style={[styles.container, styles.loadingContainer, style]}>
+                    {renderLoading ? renderLoading() : <ActivityIndicator size="large" />}
+                </View>
+            );
+        }
 
-            // Initialize the webview with existing storage
-            const storage = agent.getSessionStorage().getAll();
-            const setupScript = `
-                window.__sierraSyncStorage = ${JSON.stringify(storage)};
-            `;
-
-            webViewRef.current.injectJavaScript(setupScript);
-        };
+        // Build the injection script with current storage state.
+        // Storage is guaranteed to be loaded at this point.
+        const storageScript = `
+            window.__sierraSyncStorage = ${JSON.stringify(agent.getStorage().getAll())};
+            true;
+        `;
 
         return (
             <View style={[styles.container, style]}>
@@ -193,9 +216,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                     source={{ uri: agent.getEmbedUrl() }}
                     style={styles.webView}
                     onMessage={handleMessage}
-                    onLoadEnd={() => {
-                        setupWebViewStorage();
-                    }}
+                    injectedJavaScriptBeforeContentLoaded={storageScript}
                     onError={(error: WebViewErrorEvent) => {
                         console.log(`WebView error: ${error.nativeEvent.description}`);
                         onError?.(error);
@@ -216,6 +237,10 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    loadingContainer: {
+        justifyContent: "center",
+        alignItems: "center",
     },
     webView: {
         flex: 1,

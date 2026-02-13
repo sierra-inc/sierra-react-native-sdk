@@ -79,11 +79,50 @@ export interface ChatOptions {
      */
     chatStyle?: ChatStyleOptions;
 
+    /** Hide the title bar at the top of the chat UI. */
     hideTitleBar?: boolean;
+
+    /** Customization of the conversation that the controller will create. */
     conversationOptions?: ConversationOptions;
+
+    /** If true, the user will be able to save a conversation transcript via a menu item. */
     canPrintTranscript?: boolean;
+
+    /** If true, the user will be able to end a conversation via a menu item. */
     canEndConversation?: boolean;
+
+    /** If true, the user will be able to start a new conversation via a button in the chat UI. */
     canStartNewChat?: boolean;
+
+    /**
+     * Start the chat with messages at the top of the chat frame, allowing the conversation to
+     * expand downward until the frame height has been reached, at which point older messages
+     * scroll out of view.
+     */
     startAtTop?: boolean;
+
+    /**
+     * Pin the disclosure text to the top of the chat frame so that it is visible throughout
+     * the conversation and never scrolls out of view.
+     */
     pinDisclosure?: boolean;
+
+    /**
+     * Whether to show timestamps on chat messages. If not set, the server-configured value
+     * from the Style panel is used.
+     */
+    showTimestamps?: boolean;
+
+    /**
+     * Whether to show speaker labels (e.g. the agent name) on chat messages. If not set,
+     * the server-configured value from the Style panel is used.
+     */
+    showSpeakerLabels?: boolean;
+
+    /**
+     * Controls whether the message label (speaker name and timestamp) is shown above or below
+     * chat message bubbles. When not set and useConfiguredStyle is true, the server-configured
+     * value from the Style panel is used.
+     */
+    messageLabelPlacement?: "above" | "below";
 }

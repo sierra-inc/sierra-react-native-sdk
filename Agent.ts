@@ -127,6 +127,9 @@ export class Agent {
             agentJoinedMessage: options.agentJoinedMessage ?? "Agent connected",
             agentLeftMessage: options.agentLeftMessage ?? "Agent disconnected",
             chatStyle: options.chatStyle ? this.transformChatStyle(options.chatStyle) : undefined,
+            ...(options.showTimestamps != null && { showTimestamps: options.showTimestamps }),
+            ...(options.showSpeakerLabels != null && { showBotName: options.showSpeakerLabels }),
+            messageLabelPlacement: options.messageLabelPlacement ?? "",
         });
 
         params.append("brand", brandJSON);

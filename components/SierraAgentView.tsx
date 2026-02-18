@@ -26,6 +26,12 @@ interface SierraAgentViewProps {
      * - { error: errorMessage } - if the secret cannot be fetched right now, but the request should be retried
      */
     onSecretExpiry?: (secretName: string, replyHandler: SecretExpiryReplyHandler) => void;
+    /**
+     * Callback invoked when the WebView attempts to open a new window (e.g. window.open() or
+     * a link with target="_blank"). When provided, the default behavior of opening in the system
+     * browser is suppressed, and the event is passed to this callback instead.
+     */
+    onOpenWindow?: (event: { targetUrl: string }) => void;
 }
 
 /**
@@ -70,6 +76,7 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
             onError,
             onHttpError,
             onSecretExpiry,
+            onOpenWindow,
         }: SierraAgentViewProps,
         ref: React.Ref<WebView>
     ) => {
@@ -228,6 +235,13 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                     scrollEnabled={true}
                     originWhitelist={[agent.getEmbedOrigin()]}
                     renderLoading={renderLoading}
+                    onOpenWindow={
+                        onOpenWindow
+                            ? syntheticEvent => {
+                                  onOpenWindow(syntheticEvent.nativeEvent);
+                              }
+                            : undefined
+                    }
                 />
             </View>
         );

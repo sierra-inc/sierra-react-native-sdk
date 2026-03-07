@@ -122,8 +122,13 @@ export class Agent {
             greetingMessage: options.greetingMessage ?? "How can I help you today?",
             errorMessage:
                 options.errorMessage ?? "Oops, an error was encountered! Please try again.",
+            inactivityMessage: options.inactivityMessage ?? "",
             agentTransferWaitingMessage:
                 options.agentTransferWaitingMessage ?? "Waiting for agent…",
+            agentTransferQueueSizeMessage:
+                options.agentTransferQueueSizeMessage ?? "Queue Size: {QUEUE_SIZE}",
+            agentTransferQueueNextMessage:
+                options.agentTransferQueueNextMessage ?? "You are next in line",
             agentJoinedMessage: options.agentJoinedMessage ?? "Agent connected",
             agentLeftMessage: options.agentLeftMessage ?? "Agent disconnected",
             chatStyle: options.chatStyle ? this.transformChatStyle(options.chatStyle) : undefined,
@@ -139,6 +144,9 @@ export class Agent {
             inputPlaceholder: options.inputPlaceholder ?? "",
             disclosure: options.disclosure ?? "",
             conversationEndedMessage: options.conversationEndedMessage ?? "",
+            newChatButtonLabel: options.newChatButtonLabel ?? "",
+            printTranscriptMenuLabel: options.saveTranscriptLabel ?? "",
+            endConversationMenuLabel: options.endConversationLabel ?? "",
         });
         params.append("chatInterfaceStrings", chatInterfaceStrings);
 
@@ -201,6 +209,14 @@ export class Agent {
 
         if (options.useConfiguredStyle) {
             params.append("useConfiguredStyle", "true");
+        }
+
+        if (options.textDirection) {
+            params.append("textDirection", options.textDirection);
+        }
+
+        if (options.userIdentityToken) {
+            params.append("userIdentityToken", options.userIdentityToken);
         }
 
         return `${config.url}?${params.toString()}`;

@@ -56,10 +56,30 @@ export interface ChatOptions {
     conversationEndedMessage?: string;
 
     /**
+     * Message shown when a conversation was ended due to inactivity.
+     * Overridden by server-configured inactivity message if useConfiguredChatStrings is true.
+     */
+    inactivityMessage?: string;
+
+    /**
      * Message shown when waiting for a human agent to join the conversation.
      * Overridden by server-configured waiting message if useConfiguredChatStrings is true.
      */
     agentTransferWaitingMessage?: string;
+
+    /**
+     * Message shown when waiting for a human agent to join the conversation, and the queue
+     * size is known. "{QUEUE_SIZE}" will be replaced with the size of the queue. Overridden by
+     * server-configured queue size message if useConfiguredChatStrings is true.
+     */
+    agentTransferQueueSizeMessage?: string;
+
+    /**
+     * Message shown when waiting for a human agent to join the conversation, and the user is
+     * next in line. Overridden by server-configured queue next message if
+     * useConfiguredChatStrings is true.
+     */
+    agentTransferQueueNextMessage?: string;
 
     /**
      * Message shown when a human agent has joined the conversation.
@@ -81,6 +101,14 @@ export interface ChatOptions {
 
     /** Hide the title bar at the top of the chat UI. */
     hideTitleBar?: boolean;
+
+    /**
+     * A signed JWT that identifies the end user for this session. When set, the token is
+     * forwarded to the server on every chat request for identity resolution. The server
+     * extracts the `sub` claim and resolves a persistent EndUser, enabling cross-session
+     * memory and conversation history. Must be an RS256-signed JWT with `aud: "sierra.ai"`.
+     */
+    userIdentityToken?: string;
 
     /** Customization of the conversation that the controller will create. */
     conversationOptions?: ConversationOptions;
@@ -125,4 +153,23 @@ export interface ChatOptions {
      * value from the Style panel is used.
      */
     messageLabelPlacement?: "above" | "below";
+
+    /**
+     * Explicitly set the text direction of the chat window.
+     * - `"ltr"`: Forces the chat window to use a left-to-right language layout.
+     * - `"rtl"`: Forces the chat window to use a right-to-left language layout.
+     * - `"auto"`: Text direction is automatically configured from the conversation locale.
+     * When not set and useConfiguredStyle is true, the server-configured value is used.
+     * Otherwise defaults to left-to-right.
+     */
+    textDirection?: "ltr" | "rtl" | "auto";
+
+    /** Menu label for the conversation transcript saving item. */
+    saveTranscriptLabel?: string;
+
+    /** Menu label for the conversation ending item. */
+    endConversationLabel?: string;
+
+    /** Label for the new chat button. */
+    newChatButtonLabel?: string;
 }

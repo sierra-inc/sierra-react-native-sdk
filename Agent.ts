@@ -219,6 +219,14 @@ export class Agent {
             params.append("userIdentityToken", options.userIdentityToken);
         }
 
+        if (options.enableConversationList) {
+            params.append("enableConversationList", "true");
+        }
+
+        if (options.showConversationListByDefault) {
+            params.append("showConversationListByDefault", "true");
+        }
+
         return `${config.url}?${params.toString()}`;
     }
 

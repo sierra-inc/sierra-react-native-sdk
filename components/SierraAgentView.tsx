@@ -1,6 +1,14 @@
 // Copyright Sierra
 
-import React, { useCallback, useRef, forwardRef, ReactElement, useState, useEffect } from "react";
+import React, {
+    useCallback,
+    useRef,
+    forwardRef,
+    useImperativeHandle,
+    ReactElement,
+    useState,
+    useEffect,
+} from "react";
 import { View, StyleSheet, ViewStyle, Platform, ActivityIndicator } from "react-native";
 import WebView from "react-native-webview";
 import type {
@@ -17,6 +25,8 @@ interface SierraAgentViewProps {
     onConversationTransfer?: (transfer: ConversationTransfer) => void;
     onAgentMessageEnd?: () => void;
     onEndChat?: () => void;
+    onShowConversationList?: () => void;
+    onHideConversationList?: () => void;
     onError?: (event: WebViewErrorEvent) => void;
     onHttpError?: (event: WebViewHttpErrorEvent) => void;
     /**
@@ -59,12 +69,25 @@ type WebViewMessage =
           type: "onSecretExpiry";
           secretName: string;
           callbackId: string;
+      }
+    | {
+          type: "onShowConversationList";
+      }
+    | {
+          type: "onHideConversationList";
       };
+
+export interface SierraAgentViewHandle {
+    /** The underlying WebView instance, if available. */
+    webView: WebView | null;
+    /** Navigate to the conversation list view programmatically. */
+    showConversationList(): void;
+}
 
 /**
  * Sierra WebView Chat component that uses a WebView to embed the Sierra chat experience
  */
-const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, SierraAgentViewProps>(
+const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
     (
         {
             agent,
@@ -73,15 +96,26 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
             onConversationTransfer,
             onAgentMessageEnd,
             onEndChat,
+            onShowConversationList,
+            onHideConversationList,
             onError,
             onHttpError,
             onSecretExpiry,
             onOpenWindow,
         }: SierraAgentViewProps,
-        ref: React.Ref<WebView>
+        ref: React.Ref<SierraAgentViewHandle>
     ) => {
         const webViewRef = useRef<WebView>(null);
         const [isStorageReady, setIsStorageReady] = useState(false);
+
+        useImperativeHandle(ref, () => ({
+            get webView() {
+                return webViewRef.current;
+            },
+            showConversationList() {
+                webViewRef.current?.injectJavaScript("sierraMobile.showConversationList(); true;");
+            },
+        }));
 
         // Wait for storage to load before rendering the WebView.
         // This ensures conversation state is properly restored for DISK mode.
@@ -98,17 +132,9 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
             };
         }, [agent]);
 
-        const setWebViewRef = useCallback(
-            (instance: WebView | null) => {
-                webViewRef.current = instance;
-                if (typeof ref === "function") {
-                    ref(instance);
-                } else if (ref) {
-                    ref.current = instance;
-                }
-            },
-            [ref]
-        );
+        const setWebViewRef = useCallback((instance: WebView | null) => {
+            webViewRef.current = instance;
+        }, []);
 
         // Handle messages from the WebViewMessageEvent
         const handleMessage = (event: any) => {
@@ -170,6 +196,14 @@ const SierraAgentView: React.FC<SierraAgentViewProps> = forwardRef<WebView, Sier
                             `);
                         }
                         onEndChat?.();
+                        break;
+
+                    case "onShowConversationList":
+                        onShowConversationList?.();
+                        break;
+
+                    case "onHideConversationList":
+                        onHideConversationList?.();
                         break;
 
                     case "onSecretExpiry":

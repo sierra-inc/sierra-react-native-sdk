@@ -110,6 +110,12 @@ export interface ChatOptions {
      */
     userIdentityToken?: string;
 
+    /** Whether to show the conversation list UI. Requires userIdentityToken. */
+    enableConversationList?: boolean;
+
+    /** Whether to show the conversation list by default when the chat opens. */
+    showConversationListByDefault?: boolean;
+
     /** Customization of the conversation that the controller will create. */
     conversationOptions?: ConversationOptions;
 
@@ -119,7 +125,12 @@ export interface ChatOptions {
     /** If true, the user will be able to end a conversation via a menu item. */
     canEndConversation?: boolean;
 
-    /** If true, the user will be able to start a new conversation via a button in the chat UI. */
+    /**
+     * If true, a "new chat" button is shown on the conversation view after the conversation
+     * has ended. Only effective when `canEndConversation` is true. When the conversation list
+     * is enabled, the list view always includes its own button to start a new chat regardless
+     * of this setting.
+     */
     canStartNewChat?: boolean;
 
     /**

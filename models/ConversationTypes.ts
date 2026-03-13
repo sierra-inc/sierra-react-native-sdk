@@ -108,4 +108,14 @@ export class ConversationCallbacks {
     onSecretExpiry(_secretName: string, replyHandler: SecretExpiryReplyHandler): void {
         replyHandler({ value: null });
     }
+
+    /**
+     * Callback invoked when the conversation list is shown.
+     */
+    onShowConversationList(): void {}
+
+    /**
+     * Callback invoked when the conversation list is hidden (a conversation is opened or started).
+     */
+    onHideConversationList(): void {}
 }

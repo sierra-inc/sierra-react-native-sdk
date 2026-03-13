@@ -12,6 +12,7 @@ import { type ChatOptions } from "./models/ChatOptions";
 import { PersistenceMode } from "./models/PersistenceMode";
 import { ConversationStorage, type StorageAdapter } from "./models/ConversationStorage";
 import SierraAgentView from "./components/SierraAgentView";
+import { type SierraAgentViewHandle } from "./components/SierraAgentView";
 
 export {
     Agent,
@@ -22,6 +23,7 @@ export {
     type SecretExpiryResult,
     type SecretExpiryReplyHandler,
     SierraAgentView,
+    type SierraAgentViewHandle,
     AgentAPIHostType,
     PersistenceMode,
     ConversationStorage,

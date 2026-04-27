@@ -10,8 +10,9 @@ export interface ChatOptions {
     name: string;
 
     /**
-     * Use chat interface strings configured on the server (greeting, error messages, etc.).
-     * When enabled, server-configured strings take precedence over local string options.
+     * Use chat interface strings configured on the server (greeting, error messages, etc.),
+     * including server-managed locale/direction settings for those strings.
+     * When enabled, server-configured values take precedence over local string options.
      * @default false
      */
     useConfiguredChatStrings?: boolean;
@@ -141,6 +142,11 @@ export interface ChatOptions {
     startAtTop?: boolean;
 
     /**
+     * Whether to show a scroll-to-bottom indicator when the user scrolls up in the chat.
+     */
+    showScrollToBottom?: boolean;
+
+    /**
      * Pin the disclosure text to the top of the chat frame so that it is visible throughout
      * the conversation and never scrolls out of view.
      */
@@ -166,12 +172,20 @@ export interface ChatOptions {
     messageLabelPlacement?: "above" | "below";
 
     /**
+     * Explicitly set whether or not to auto-detect locale-specific chat strings and text direction
+     * from the conversation locale.
+     */
+    autoDetectChatStrings?: boolean;
+
+    /**
      * Explicitly set the text direction of the chat window.
      * - `"ltr"`: Forces the chat window to use a left-to-right language layout.
      * - `"rtl"`: Forces the chat window to use a right-to-left language layout.
      * - `"auto"`: Text direction is automatically configured from the conversation locale.
-     * When not set and useConfiguredStyle is true, the server-configured value is used.
-     * Otherwise defaults to left-to-right.
+     * When not set, automatically determined from locale if auto-detection is active --
+     * either via `autoDetectChatStrings` or the server's Agent Studio configuration
+     * when `useConfiguredChatStrings` is true. Otherwise falls back to the server
+     * value when `useConfiguredChatStrings` is true, or left-to-right.
      */
     textDirection?: "ltr" | "rtl" | "auto";
 

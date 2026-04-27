@@ -108,8 +108,11 @@ export class Agent {
 
     private buildUrl(options: ChatOptions): string {
         const { config } = this;
+        const DEFAULT_GREETING_MESSAGE = "How can I help you today?";
 
         const params = new URLSearchParams();
+        const shouldOmitDefaultChatStrings =
+            options.autoDetectChatStrings === true || options.useConfiguredChatStrings === true;
 
         // Add the specific release target for the agent
         if (config.target) {
@@ -117,37 +120,108 @@ export class Agent {
         }
 
         // Should match the Brand type from bots/useChat.tsx
-        const brandJSON = JSON.stringify({
-            botName: options.name ?? "Your virtual assistant",
-            greetingMessage: options.greetingMessage ?? "How can I help you today?",
-            errorMessage:
-                options.errorMessage ?? "Oops, an error was encountered! Please try again.",
-            inactivityMessage: options.inactivityMessage ?? "",
-            agentTransferWaitingMessage:
-                options.agentTransferWaitingMessage ?? "Waiting for agent…",
-            agentTransferQueueSizeMessage:
-                options.agentTransferQueueSizeMessage ?? "Queue Size: {QUEUE_SIZE}",
-            agentTransferQueueNextMessage:
-                options.agentTransferQueueNextMessage ?? "You are next in line",
-            agentJoinedMessage: options.agentJoinedMessage ?? "Agent connected",
-            agentLeftMessage: options.agentLeftMessage ?? "Agent disconnected",
-            chatStyle: options.chatStyle ? this.transformChatStyle(options.chatStyle) : undefined,
-            ...(options.showTimestamps != null && { showTimestamps: options.showTimestamps }),
-            ...(options.showSpeakerLabels != null && { showBotName: options.showSpeakerLabels }),
-            messageLabelPlacement: options.messageLabelPlacement ?? "",
-        });
+        const brandJSON = JSON.stringify(
+            shouldOmitDefaultChatStrings
+                ? {
+                      // If locale auto-detect or server-configured chat strings are enabled,
+                      // only include fields the caller explicitly provided. Omitted fields use
+                      // locale defaults or server-provided values instead.
+                      botName: options.name ?? "Your virtual assistant",
+                      ...(options.greetingMessage != null && {
+                          greetingMessage: options.greetingMessage,
+                      }),
+                      ...(options.errorMessage != null && {
+                          errorMessage: options.errorMessage,
+                      }),
+                      ...(options.inactivityMessage != null && {
+                          inactivityMessage: options.inactivityMessage,
+                      }),
+                      ...(options.agentTransferWaitingMessage != null && {
+                          agentTransferWaitingMessage: options.agentTransferWaitingMessage,
+                      }),
+                      ...(options.agentTransferQueueSizeMessage != null && {
+                          agentTransferQueueSizeMessage: options.agentTransferQueueSizeMessage,
+                      }),
+                      ...(options.agentTransferQueueNextMessage != null && {
+                          agentTransferQueueNextMessage: options.agentTransferQueueNextMessage,
+                      }),
+                      ...(options.agentJoinedMessage != null && {
+                          agentJoinedMessage: options.agentJoinedMessage,
+                      }),
+                      ...(options.agentLeftMessage != null && {
+                          agentLeftMessage: options.agentLeftMessage,
+                      }),
+                      chatStyle: options.chatStyle
+                          ? this.transformChatStyle(options.chatStyle)
+                          : undefined,
+                      ...(options.showTimestamps != null && {
+                          showTimestamps: options.showTimestamps,
+                      }),
+                      ...(options.showSpeakerLabels != null && {
+                          showBotName: options.showSpeakerLabels,
+                      }),
+                      messageLabelPlacement: options.messageLabelPlacement ?? "",
+                  }
+                : {
+                      botName: options.name ?? "Your virtual assistant",
+                      greetingMessage: options.greetingMessage ?? DEFAULT_GREETING_MESSAGE,
+                      errorMessage:
+                          options.errorMessage ??
+                          "Oops, an error was encountered! Please try again.",
+                      inactivityMessage: options.inactivityMessage ?? "",
+                      agentTransferWaitingMessage:
+                          options.agentTransferWaitingMessage ?? "Waiting for agent…",
+                      agentTransferQueueSizeMessage:
+                          options.agentTransferQueueSizeMessage ?? "Queue Size: {QUEUE_SIZE}",
+                      agentTransferQueueNextMessage:
+                          options.agentTransferQueueNextMessage ?? "You are next in line",
+                      agentJoinedMessage: options.agentJoinedMessage ?? "Agent connected",
+                      agentLeftMessage: options.agentLeftMessage ?? "Agent disconnected",
+                      chatStyle: options.chatStyle
+                          ? this.transformChatStyle(options.chatStyle)
+                          : undefined,
+                      ...(options.showTimestamps != null && {
+                          showTimestamps: options.showTimestamps,
+                      }),
+                      ...(options.showSpeakerLabels != null && {
+                          showBotName: options.showSpeakerLabels,
+                      }),
+                      messageLabelPlacement: options.messageLabelPlacement ?? "",
+                  }
+        );
 
         params.append("brand", brandJSON);
 
         // Subset of the ChatUiStrings type from chat/ui-strings.ts
-        const chatInterfaceStrings = JSON.stringify({
-            inputPlaceholder: options.inputPlaceholder ?? "",
-            disclosure: options.disclosure ?? "",
-            conversationEndedMessage: options.conversationEndedMessage ?? "",
-            newChatButtonLabel: options.newChatButtonLabel ?? "",
-            printTranscriptMenuLabel: options.saveTranscriptLabel ?? "",
-            endConversationMenuLabel: options.endConversationLabel ?? "",
-        });
+        const chatInterfaceStrings = JSON.stringify(
+            shouldOmitDefaultChatStrings
+                ? {
+                      ...(options.inputPlaceholder != null && {
+                          inputPlaceholder: options.inputPlaceholder,
+                      }),
+                      ...(options.disclosure != null && { disclosure: options.disclosure }),
+                      ...(options.conversationEndedMessage != null && {
+                          conversationEndedMessage: options.conversationEndedMessage,
+                      }),
+                      ...(options.newChatButtonLabel != null && {
+                          newChatButtonLabel: options.newChatButtonLabel,
+                      }),
+                      ...(options.saveTranscriptLabel != null && {
+                          printTranscriptMenuLabel: options.saveTranscriptLabel,
+                      }),
+                      ...(options.endConversationLabel != null && {
+                          endConversationMenuLabel: options.endConversationLabel,
+                      }),
+                  }
+                : {
+                      inputPlaceholder: options.inputPlaceholder ?? "",
+                      disclosure: options.disclosure ?? "",
+                      conversationEndedMessage: options.conversationEndedMessage ?? "",
+                      newChatButtonLabel: options.newChatButtonLabel ?? "",
+                      printTranscriptMenuLabel: options.saveTranscriptLabel ?? "",
+                      endConversationMenuLabel: options.endConversationLabel ?? "",
+                  }
+        );
         params.append("chatInterfaceStrings", chatInterfaceStrings);
 
         if (options.hideTitleBar) {
@@ -174,7 +248,12 @@ export class Agent {
             }
         }
 
-        const customGreeting = conversationOptions.customGreeting ?? options.greetingMessage;
+        const shouldUseGreetingMessageAsCustomGreeting =
+            !!options.greetingMessage &&
+            (!shouldOmitDefaultChatStrings || options.greetingMessage !== DEFAULT_GREETING_MESSAGE);
+        const customGreeting =
+            conversationOptions.customGreeting ??
+            (shouldUseGreetingMessageAsCustomGreeting ? options.greetingMessage : undefined);
         if (customGreeting) {
             params.append("greeting", customGreeting);
         }
@@ -199,6 +278,10 @@ export class Agent {
             params.append("startAtTop", "true");
         }
 
+        if (options.showScrollToBottom) {
+            params.append("showScrollToBottom", "true");
+        }
+
         if (options.pinDisclosure) {
             params.append("pinDisclosure", "true");
         }
@@ -209,6 +292,10 @@ export class Agent {
 
         if (options.useConfiguredStyle) {
             params.append("useConfiguredStyle", "true");
+        }
+
+        if (options.autoDetectChatStrings !== undefined) {
+            params.append("autoDetectChatStrings", String(options.autoDetectChatStrings));
         }
 
         if (options.textDirection) {

@@ -165,6 +165,12 @@ export interface ChatOptions {
     showSpeakerLabels?: boolean;
 
     /**
+     * Whether or not to show per-message avatars for live agents. If not set,
+     * the server-configured value from the Style panel is used.
+     */
+    showAvatars?: boolean;
+
+    /**
      * Controls whether the message label (speaker name and timestamp) is shown above or below
      * chat message bubbles. When not set and useConfiguredStyle is true, the server-configured
      * value from the Style panel is used.

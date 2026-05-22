@@ -14,6 +14,12 @@ export interface ChatStyleColors {
     assistantBubbleText?: string;
     userBubble?: string;
     userBubbleText?: string;
+    /**
+     * The color of the file upload (attachment) button icon in the chat input.
+     * When omitted, falls back to `userBubble`. Override this when `userBubble`
+     * does not contrast well with `background` in light or dark mode.
+     */
+    uploadButtonIcon?: string;
 }
 
 /**

@@ -119,7 +119,7 @@ export class Agent {
             params.append("target", config.target);
         }
 
-        // Should match the Brand type from bots/useChat.tsx
+        // Should match the web embed's Brand shape.
         const brandJSON = JSON.stringify(
             shouldOmitDefaultChatStrings
                 ? {
@@ -160,6 +160,9 @@ export class Agent {
                       ...(options.showSpeakerLabels != null && {
                           showBotName: options.showSpeakerLabels,
                       }),
+                      ...(options.showAvatars != null && {
+                          showAvatars: options.showAvatars,
+                      }),
                       messageLabelPlacement: options.messageLabelPlacement ?? "",
                   }
                 : {
@@ -186,13 +189,16 @@ export class Agent {
                       ...(options.showSpeakerLabels != null && {
                           showBotName: options.showSpeakerLabels,
                       }),
+                      ...(options.showAvatars != null && {
+                          showAvatars: options.showAvatars,
+                      }),
                       messageLabelPlacement: options.messageLabelPlacement ?? "",
                   }
         );
 
         params.append("brand", brandJSON);
 
-        // Subset of the ChatUiStrings type from chat/ui-strings.ts
+        // Subset of the web embed's chat UI strings.
         const chatInterfaceStrings = JSON.stringify(
             shouldOmitDefaultChatStrings
                 ? {
@@ -325,7 +331,7 @@ export class Agent {
             colors: chatStyle.colors,
         };
 
-        // Transform typography to type to match the ChatStyle type from ui/chat/chat.tsx
+        // Transform typography to type to match the web embed's ChatStyle shape.
         if (chatStyle.typography) {
             const type: any = {
                 ...chatStyle.typography,

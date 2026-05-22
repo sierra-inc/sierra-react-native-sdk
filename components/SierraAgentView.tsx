@@ -6,6 +6,7 @@ import React, {
     forwardRef,
     useImperativeHandle,
     ReactElement,
+    useMemo,
     useState,
     useEffect,
 } from "react";
@@ -20,6 +21,17 @@ import { Agent } from "../Agent";
 
 interface SierraAgentViewProps {
     agent: Agent;
+    /**
+     * Opaque conversation state token returned by the public Sierra API. When set, the chat
+     * resumes the conversation identified by this token instead of starting a new one.
+     *
+     * Supply this only on the view instance that should resume the referenced conversation;
+     * do not retain it on long-lived configuration. Once the customer ends that conversation
+     * and starts a new one, the SDK's own `ConversationStorage` takes over. If you continue
+     * to pass the original `conversationState` on subsequent mounts, the new conversation will
+     * be replaced by the original one.
+     */
+    conversationState?: string;
     style?: ViewStyle;
     renderLoading?: () => ReactElement;
     onConversationTransfer?: (transfer: ConversationTransfer) => void;
@@ -37,6 +49,14 @@ interface SierraAgentViewProps {
      */
     onSecretExpiry?: (secretName: string, replyHandler: SecretExpiryReplyHandler) => void;
     /**
+     * Callback invoked when the user identity token (JWT) has expired and needs to be refreshed.
+     * Reply handler should be invoked with one of:
+     * - { value: freshToken } - a fresh JWT string
+     * - { value: null } - if the token cannot be provided (the session downgrades to anonymous)
+     * - { error: errorMessage } - if the token cannot be fetched right now, but the request should be retried
+     */
+    onUserIdentityTokenExpiry?: (replyHandler: SecretExpiryReplyHandler) => void;
+    /**
      * Callback invoked when the WebView attempts to open a new window (e.g. window.open() or
      * a link with target="_blank"). When provided, the default behavior of opening in the system
      * browser is suppressed, and the event is passed to this callback instead.
@@ -44,9 +64,7 @@ interface SierraAgentViewProps {
     onOpenWindow?: (event: { targetUrl: string }) => void;
 }
 
-/**
- * Interface to match postMessage's message parameter from web/sites/embed/pages/agent/{token}/mobile.tsx
- */
+/** Interface to match postMessage messages sent by the mobile web embed. */
 type WebViewMessage =
     | {
           type: "storeValue";
@@ -71,6 +89,10 @@ type WebViewMessage =
           callbackId: string;
       }
     | {
+          type: "onUserIdentityTokenExpiry";
+          callbackId: string;
+      }
+    | {
           type: "onShowConversationList";
       }
     | {
@@ -91,6 +113,7 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
     (
         {
             agent,
+            conversationState,
             style,
             renderLoading,
             onConversationTransfer,
@@ -101,12 +124,22 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
             onError,
             onHttpError,
             onSecretExpiry,
+            onUserIdentityTokenExpiry,
             onOpenWindow,
         }: SierraAgentViewProps,
         ref: React.Ref<SierraAgentViewHandle>
     ) => {
         const webViewRef = useRef<WebView>(null);
         const [isStorageReady, setIsStorageReady] = useState(false);
+
+        const embedUrl = useMemo(() => {
+            const baseUrl = agent.getEmbedUrl();
+            if (!conversationState) {
+                return baseUrl;
+            }
+            const separator = baseUrl.includes("?") ? "&" : "?";
+            return `${baseUrl}${separator}state=${encodeURIComponent(conversationState)}`;
+        }, [agent, conversationState]);
 
         useImperativeHandle(ref, () => ({
             get webView() {
@@ -226,6 +259,26 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
                             }
                         }
                         break;
+
+                    case "onUserIdentityTokenExpiry":
+                        if (onUserIdentityTokenExpiry) {
+                            onUserIdentityTokenExpiry(result => {
+                                if (webViewRef.current) {
+                                    const jsCode =
+                                        "error" in result
+                                            ? `window.__sierraResolveCallback(${JSON.stringify(message.callbackId)}, null, ${JSON.stringify(result.error)}); true;`
+                                            : `window.__sierraResolveCallback(${JSON.stringify(message.callbackId)}, ${JSON.stringify(result.value)}); true;`;
+                                    webViewRef.current.injectJavaScript(jsCode);
+                                }
+                            });
+                        } else {
+                            if (webViewRef.current) {
+                                webViewRef.current.injectJavaScript(
+                                    `window.__sierraResolveCallback(${JSON.stringify(message.callbackId)}, null); true;`
+                                );
+                            }
+                        }
+                        break;
                 }
             } catch (error) {
                 console.error(`Error handling message from WebView: ${JSON.stringify(error)}`);
@@ -242,10 +295,12 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
             );
         }
 
-        // Build the injection script with current storage state.
-        // Storage is guaranteed to be loaded at this point.
-        const storageScript = `
+        // Build the injection script with current storage state and capability advertisement.
+        // Storage is guaranteed to be loaded at this point. __sierraMobileCapabilities lets the
+        // web embed avoid registering bridge functions this SDK build can't service.
+        const bootstrapScript = `
             window.__sierraSyncStorage = ${JSON.stringify(agent.getStorage().getAll())};
+            window.__sierraMobileCapabilities = { onUserIdentityTokenExpiry: true };
             true;
         `;
 
@@ -254,10 +309,10 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
                 <WebView
                     userAgent={getUserAgent()}
                     ref={setWebViewRef}
-                    source={{ uri: agent.getEmbedUrl() }}
+                    source={{ uri: embedUrl }}
                     style={styles.webView}
                     onMessage={handleMessage}
-                    injectedJavaScriptBeforeContentLoaded={storageScript}
+                    injectedJavaScriptBeforeContentLoaded={bootstrapScript}
                     onError={(error: WebViewErrorEvent) => {
                         console.log(`WebView error: ${error.nativeEvent.description}`);
                         onError?.(error);

@@ -19,6 +19,21 @@ import type {
 import { ConversationTransfer, SecretExpiryReplyHandler } from "../models/ConversationTypes";
 import { Agent } from "../Agent";
 
+/**
+ * Resume budget: how long to keep the loading overlay up after the embed reports a resumed
+ * conversation (onOpen with isNewConversation: false) while waiting for onConversationReady. Armed
+ * when onOpen arrives -- not at mount -- so the window excludes page-load time, matching iOS/Android.
+ */
+const REVEAL_FALLBACK_MS = 10_000;
+
+/**
+ * Hard safety net armed when the WebView mounts. Only reached when the embed never posts onOpen at
+ * all (e.g. an older embed that doesn't bridge onOpen to React Native, or a bridge regression), so
+ * the overlay can't get stuck forever. Long enough to clear any realistic page-load + resume so it
+ * never pre-empts the normal onConversationReady reveal.
+ */
+const REVEAL_HARD_TIMEOUT_MS = 30_000;
+
 interface SierraAgentViewProps {
     agent: Agent;
     /**
@@ -66,6 +81,13 @@ interface SierraAgentViewProps {
 
 /** Interface to match postMessage messages sent by the mobile web embed. */
 type WebViewMessage =
+    | {
+          type: "onOpen";
+          isNewConversation: boolean;
+      }
+    | {
+          type: "onConversationReady";
+      }
     | {
           type: "storeValue";
           data: { key: string; value: string };
@@ -131,6 +153,37 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
     ) => {
         const webViewRef = useRef<WebView>(null);
         const [isStorageReady, setIsStorageReady] = useState(false);
+        const [contentReady, setContentReady] = useState(false);
+        const revealFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+        const clearRevealFallbackTimer = useCallback(() => {
+            if (revealFallbackTimerRef.current !== null) {
+                clearTimeout(revealFallbackTimerRef.current);
+                revealFallbackTimerRef.current = null;
+            }
+        }, []);
+
+        const revealContent = useCallback(() => {
+            clearRevealFallbackTimer();
+            setContentReady(true);
+        }, [clearRevealFallbackTimer]);
+
+        const scheduleRevealFallback = useCallback(
+            (delayMs: number) => {
+                // Restart from a clean slate so each call gets a full window: the resume-budget
+                // timer (armed on onOpen) replaces the mount-armed hard net, and a timer still
+                // pending from a previous embedUrl can't fire early for the new load.
+                clearRevealFallbackTimer();
+                revealFallbackTimerRef.current = setTimeout(() => {
+                    revealFallbackTimerRef.current = null;
+                    setContentReady(true);
+                }, delayMs);
+            },
+            [clearRevealFallbackTimer]
+        );
+
+        // Clear any pending fallback timer on unmount.
+        useEffect(() => clearRevealFallbackTimer, [clearRevealFallbackTimer]);
 
         const embedUrl = useMemo(() => {
             const baseUrl = agent.getEmbedUrl();
@@ -165,6 +218,23 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
             };
         }, [agent]);
 
+        // Arm the hard safety net once the WebView is about to mount, so the loading overlay is
+        // always eventually removed even if the embed never posts a readiness signal -- e.g. an
+        // older embed that does not send onOpen/onConversationReady to React Native, or a future
+        // regression in that bridge. The shorter resume budget is armed later, when onOpen reports
+        // a resumed conversation; revealContent() cancels whichever timer is pending.
+        //
+        // Re-entering on embedUrl changes matters because the WebView navigates to a new URL (and
+        // re-resumes) when conversationState or agent changes; without re-hiding, the previous
+        // reveal would leave the overlay off and flash the new conversation's empty state.
+        useEffect(() => {
+            if (!isStorageReady) {
+                return;
+            }
+            setContentReady(false);
+            scheduleRevealFallback(REVEAL_HARD_TIMEOUT_MS);
+        }, [isStorageReady, embedUrl, scheduleRevealFallback]);
+
         const setWebViewRef = useCallback((instance: WebView | null) => {
             webViewRef.current = instance;
         }, []);
@@ -176,6 +246,23 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
                 const message: WebViewMessage = JSON.parse(data);
 
                 switch (message.type) {
+                    case "onOpen":
+                        if (message.isNewConversation) {
+                            // New conversation: the greeting is already rendered, so reveal now.
+                            revealContent();
+                        } else {
+                            // Resuming an existing conversation: start the resume budget now that the
+                            // embed has mounted (matches iOS/Android). Anchoring here rather than at
+                            // mount keeps page-load time out of the window, so a slow load can't drop
+                            // the overlay before onConversationReady. Stays up until that arrives.
+                            scheduleRevealFallback(REVEAL_FALLBACK_MS);
+                        }
+                        break;
+
+                    case "onConversationReady":
+                        revealContent();
+                        break;
+
                     case "storeValue":
                         if (message.data?.key && message.data?.value !== undefined) {
                             // Update the agent's storage
@@ -301,8 +388,14 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
         const bootstrapScript = `
             window.__sierraSyncStorage = ${JSON.stringify(agent.getStorage().getAll())};
             window.__sierraMobileCapabilities = { onUserIdentityTokenExpiry: true };
+            window.__sierraInitialMemory = ${JSON.stringify(agent.getInitialMemory())};
             true;
         `;
+
+        // Match the loading overlay background to any background color the host supplied via
+        // `style`, so the overlay fully hides the WebView (which would otherwise flash white).
+        const overlayBackgroundColor =
+            (StyleSheet.flatten(style)?.backgroundColor as string | undefined) ?? "white";
 
         return (
             <View style={[styles.container, style]}>
@@ -320,10 +413,8 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
                     onHttpError={onHttpError}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
-                    startInLoadingState={true}
                     scrollEnabled={true}
                     originWhitelist={[agent.getEmbedOrigin()]}
-                    renderLoading={renderLoading}
                     onOpenWindow={
                         onOpenWindow
                             ? syntheticEvent => {
@@ -332,6 +423,13 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
                             : undefined
                     }
                 />
+                {!contentReady && (
+                    <View
+                        style={[styles.loadingOverlay, { backgroundColor: overlayBackgroundColor }]}
+                    >
+                        {renderLoading ? renderLoading() : <ActivityIndicator size="large" />}
+                    </View>
+                )}
             </View>
         );
     }
@@ -348,6 +446,12 @@ const styles = StyleSheet.create({
     webView: {
         flex: 1,
         zIndex: 0,
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 1,
     },
 });
 

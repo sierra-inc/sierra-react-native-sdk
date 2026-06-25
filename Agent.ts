@@ -106,6 +106,26 @@ export class Agent {
         }
     }
 
+    /**
+     * Get the agent's initial memory (variables and secrets). These are delivered to the web embed
+     * via the window.__sierraInitialMemory bridge global instead of URL query parameters, so the
+     * values cannot leak into device, proxy, or analytics logs.
+     */
+    getInitialMemory(): { variables?: Record<string, string>; secrets?: Record<string, string> } {
+        const conversationOptions = this.options.conversationOptions;
+        const memory: { variables?: Record<string, string>; secrets?: Record<string, string> } = {};
+        if (
+            conversationOptions?.variables &&
+            Object.keys(conversationOptions.variables).length > 0
+        ) {
+            memory.variables = conversationOptions.variables;
+        }
+        if (conversationOptions?.secrets && Object.keys(conversationOptions.secrets).length > 0) {
+            memory.secrets = conversationOptions.secrets;
+        }
+        return memory;
+    }
+
     private buildUrl(options: ChatOptions): string {
         const { config } = this;
         const DEFAULT_GREETING_MESSAGE = "How can I help you today?";
@@ -163,6 +183,15 @@ export class Agent {
                       ...(options.showAvatars != null && {
                           showAvatars: options.showAvatars,
                       }),
+                      ...(options.agentAvatarURL != null && {
+                          agentAvatarURL: options.agentAvatarURL,
+                      }),
+                      ...(options.sendButtonSVG != null && {
+                          sendButtonSVG: options.sendButtonSVG,
+                      }),
+                      ...(options.sendButtonDisabledSVG != null && {
+                          sendButtonDisabledSVG: options.sendButtonDisabledSVG,
+                      }),
                       messageLabelPlacement: options.messageLabelPlacement ?? "",
                   }
                 : {
@@ -191,6 +220,15 @@ export class Agent {
                       }),
                       ...(options.showAvatars != null && {
                           showAvatars: options.showAvatars,
+                      }),
+                      ...(options.agentAvatarURL != null && {
+                          agentAvatarURL: options.agentAvatarURL,
+                      }),
+                      ...(options.sendButtonSVG != null && {
+                          sendButtonSVG: options.sendButtonSVG,
+                      }),
+                      ...(options.sendButtonDisabledSVG != null && {
+                          sendButtonDisabledSVG: options.sendButtonDisabledSVG,
                       }),
                       messageLabelPlacement: options.messageLabelPlacement ?? "",
                   }
@@ -241,18 +279,9 @@ export class Agent {
 
         const locale = conversationOptions.locale ?? "en-US";
         params.append("locale", locale);
-        // Add variables
-        if (conversationOptions.variables) {
-            for (const [name, value] of Object.entries(conversationOptions.variables)) {
-                params.append("variable", `${name}:${value}`);
-            }
-        }
-        // Add secrets
-        if (conversationOptions.secrets) {
-            for (const [name, value] of Object.entries(conversationOptions.secrets)) {
-                params.append("secret", `${name}:${value}`);
-            }
-        }
+        // Variables and secrets are intentionally not added to the URL. They are delivered to the
+        // web embed via the window.__sierraInitialMemory bridge global (see getInitialMemory and
+        // SierraAgentView) so they cannot leak into device, proxy, or analytics logs.
 
         const shouldUseGreetingMessageAsCustomGreeting =
             !!options.greetingMessage &&
@@ -274,6 +303,14 @@ export class Agent {
 
         if (options.canEndConversation) {
             params.append("canEndConversation", "true");
+        }
+
+        if (options.confirmEndConversation) {
+            params.append("confirmEndConversation", "true");
+        }
+
+        if (options.footerEndConversationButton) {
+            params.append("footerEndConversationButton", "true");
         }
 
         if (options.canStartNewChat) {
@@ -318,6 +355,10 @@ export class Agent {
 
         if (options.showConversationListByDefault) {
             params.append("showConversationListByDefault", "true");
+        }
+
+        if (options.updateVariablesAndSecretsOnSessionResume) {
+            params.append("updateVariablesAndSecretsOnSessionResume", "true");
         }
 
         return `${config.url}?${params.toString()}`;

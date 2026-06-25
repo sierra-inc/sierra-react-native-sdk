@@ -100,6 +100,20 @@ export interface ChatOptions {
      */
     chatStyle?: ChatStyleOptions;
 
+    /**
+     * Inline SVG markup for the chat send button. Replaces the default send arrow (including
+     * its background) when provided. Overridden by the server-configured value if useConfiguredStyle
+     * is true.
+     */
+    sendButtonSVG?: string;
+
+    /**
+     * Inline SVG markup for the send button when it is disabled (e.g. the input is empty).
+     * Falls back to sendButtonSVG when not provided. Overridden by the server-configured value
+     * if useConfiguredStyle is true.
+     */
+    sendButtonDisabledSVG?: string;
+
     /** Hide the title bar at the top of the chat UI. */
     hideTitleBar?: boolean;
 
@@ -117,6 +131,15 @@ export interface ChatOptions {
     /** Whether to show the conversation list by default when the chat opens. */
     showConversationListByDefault?: boolean;
 
+    /**
+     * When true, the variables and secrets supplied via `conversationOptions` are re-sent when an
+     * existing conversation is resumed (e.g. when the view is recreated with new values), so the
+     * resumed conversation picks them up. Values are merged per key (later values win); keys not
+     * supplied are left unchanged. When false (the default), variables and secrets are only applied
+     * when the conversation is first created.
+     */
+    updateVariablesAndSecretsOnSessionResume?: boolean;
+
     /** Customization of the conversation that the controller will create. */
     conversationOptions?: ConversationOptions;
 
@@ -125,6 +148,19 @@ export interface ChatOptions {
 
     /** If true, the user will be able to end a conversation via a menu item. */
     canEndConversation?: boolean;
+
+    /**
+     * If true, the user is asked to confirm before the conversation ends. The confirmation is
+     * shown inline within the chat (covering the transcript and input). Only effective when
+     * `canEndConversation` is true.
+     */
+    confirmEndConversation?: boolean;
+
+    /**
+     * If true, an end conversation button is shown in the chat footer (above the input) while the
+     * user is speaking with a live agent. Only effective when `canEndConversation` is true.
+     */
+    footerEndConversationButton?: boolean;
 
     /**
      * If true, a "new chat" button is shown on the conversation view after the conversation
@@ -165,10 +201,21 @@ export interface ChatOptions {
     showSpeakerLabels?: boolean;
 
     /**
-     * Whether or not to show per-message avatars for live agents. If not set,
-     * the server-configured value from the Style panel is used.
+     * Whether or not to show per-message avatars for agents. When enabled, the
+     * chat shows avatars next to live agent messages using image URLs provided
+     * by the contact center. If `agentAvatarURL` is also set, that image is
+     * shown next to virtual agent messages. If not set, the server-configured
+     * value from the Style panel is used.
      */
     showAvatars?: boolean;
+
+    /**
+     * HTTPS URL of an image to show next to virtual agent messages when
+     * `showAvatars` is enabled. Values are trimmed and must be 2048 characters
+     * or fewer. If not set, the server-configured value from the Style panel is
+     * used.
+     */
+    agentAvatarURL?: string;
 
     /**
      * Controls whether the message label (speaker name and timestamp) is shown above or below

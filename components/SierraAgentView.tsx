@@ -33,6 +33,15 @@ const REVEAL_FALLBACK_MS = 10_000;
  * never pre-empts the normal onConversationReady reveal.
  */
 const REVEAL_HARD_TIMEOUT_MS = 30_000;
+const ADD_AGENT_TAGS_TIMEOUT_MS = 30_000;
+
+/**
+ * U+2028 and U+2029 are valid in JSON strings but line terminators in JavaScript source, so JSON
+ * interpolated into an injected script must escape them to keep the script parseable.
+ */
+function escapeJsLineSeparators(json: string): string {
+    return json.replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+}
 
 interface SierraAgentViewProps {
     agent: Agent;
@@ -119,13 +128,39 @@ type WebViewMessage =
       }
     | {
           type: "onHideConversationList";
+      }
+    | {
+          type: "addAgentTagsResult";
+          callbackId: string;
+          added: boolean;
       };
+
+export type AddAgentTagsOptions = {
+    /** Add tags as developer-only tags. */
+    dev?: boolean;
+    /** Skip tags already present on the conversation. */
+    omitPresent?: boolean;
+    /** Store `name:value` tags as custom fields visible in Agent Studio. */
+    customField?: boolean;
+};
+
+/** An attachment sent alongside a user message. */
+export type UserAttachment = {
+    type: "custom";
+    data: Record<string, unknown>;
+};
 
 export interface SierraAgentViewHandle {
     /** The underlying WebView instance, if available. */
     webView: WebView | null;
     /** Navigate to the conversation list view programmatically. */
     showConversationList(): void;
+    /** Add tags to the active conversation. Resolves false if the WebView is not ready. */
+    addAgentTags(tags: string[], options?: AddAgentTagsOptions): Promise<boolean>;
+    /** Send a user message with optional attachments. */
+    sendUserMessage(message: string, attachments?: UserAttachment[]): void;
+    /** Send attachments without a text message. */
+    sendUserAttachment(attachments: UserAttachment[]): void;
 }
 
 /**
@@ -155,6 +190,16 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
         const [isStorageReady, setIsStorageReady] = useState(false);
         const [contentReady, setContentReady] = useState(false);
         const revealFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+        const nextAddAgentTagsCallbackIDRef = useRef(0);
+        const pendingAddAgentTagsCallbacksRef = useRef(
+            new Map<
+                string,
+                {
+                    resolve: (added: boolean) => void;
+                    timeout: ReturnType<typeof setTimeout>;
+                }
+            >()
+        );
 
         const clearRevealFallbackTimer = useCallback(() => {
             if (revealFallbackTimerRef.current !== null) {
@@ -185,6 +230,27 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
         // Clear any pending fallback timer on unmount.
         useEffect(() => clearRevealFallbackTimer, [clearRevealFallbackTimer]);
 
+        useEffect(() => {
+            const pendingCallbacks = pendingAddAgentTagsCallbacksRef.current;
+            return () => {
+                for (const pending of pendingCallbacks.values()) {
+                    clearTimeout(pending.timeout);
+                    pending.resolve(false);
+                }
+                pendingCallbacks.clear();
+            };
+        }, []);
+
+        const resolveAddAgentTagsCallback = useCallback((callbackId: string, added: boolean) => {
+            const pending = pendingAddAgentTagsCallbacksRef.current.get(callbackId);
+            if (!pending) {
+                return;
+            }
+            pendingAddAgentTagsCallbacksRef.current.delete(callbackId);
+            clearTimeout(pending.timeout);
+            pending.resolve(added);
+        }, []);
+
         const embedUrl = useMemo(() => {
             const baseUrl = agent.getEmbedUrl();
             if (!conversationState) {
@@ -200,6 +266,78 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
             },
             showConversationList() {
                 webViewRef.current?.injectJavaScript("sierraMobile.showConversationList(); true;");
+            },
+            addAgentTags(tags, options) {
+                const webView = webViewRef.current;
+                if (!webView) {
+                    return Promise.resolve(false);
+                }
+                return new Promise(resolve => {
+                    const callbackId = `addAgentTags_${Date.now()}_${nextAddAgentTagsCallbackIDRef.current++}`;
+                    const timeout = setTimeout(() => {
+                        resolveAddAgentTagsCallback(callbackId, false);
+                    }, ADD_AGENT_TAGS_TIMEOUT_MS);
+                    pendingAddAgentTagsCallbacksRef.current.set(callbackId, { resolve, timeout });
+                    const tagsJSON = escapeJsLineSeparators(JSON.stringify(tags));
+                    const optionsJSON = escapeJsLineSeparators(JSON.stringify(options ?? {}));
+                    webView.injectJavaScript(`
+                        (function() {
+                            const finish = function(added) {
+                                window.ReactNativeWebView.postMessage(JSON.stringify({
+                                    type: "addAgentTagsResult",
+                                    callbackId: ${JSON.stringify(callbackId)},
+                                    added: Boolean(added)
+                                }));
+                            };
+                            const fail = function() { finish(false); };
+                            const api = window.sierraMobile;
+                            if (!api || typeof api.addAgentTags !== "function") {
+                                fail();
+                                return;
+                            }
+                            Promise.resolve()
+                                .then(function() {
+                                    return api.addAgentTags(${tagsJSON}, ${optionsJSON});
+                                })
+                                .then(finish)
+                                .catch(fail);
+                        })();
+                        true;
+                    `);
+                });
+            },
+            sendUserMessage(message, attachments = []) {
+                const webView = webViewRef.current;
+                if (!webView) {
+                    return;
+                }
+                const messageJSON = escapeJsLineSeparators(JSON.stringify(message));
+                const attachmentsJSON = escapeJsLineSeparators(JSON.stringify(attachments));
+                webView.injectJavaScript(`
+                    (function() {
+                        const api = window.sierraMobile;
+                        if (api && typeof api.sendUserMessage === "function") {
+                            api.sendUserMessage(${messageJSON}, ${attachmentsJSON});
+                        }
+                    })();
+                    true;
+                `);
+            },
+            sendUserAttachment(attachments) {
+                const webView = webViewRef.current;
+                if (!webView) {
+                    return;
+                }
+                const attachmentsJSON = escapeJsLineSeparators(JSON.stringify(attachments));
+                webView.injectJavaScript(`
+                    (function() {
+                        const api = window.sierraMobile;
+                        if (api && typeof api.sendUserAttachment === "function") {
+                            api.sendUserAttachment(${attachmentsJSON});
+                        }
+                    })();
+                    true;
+                `);
             },
         }));
 
@@ -324,6 +462,10 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
 
                     case "onHideConversationList":
                         onHideConversationList?.();
+                        break;
+
+                    case "addAgentTagsResult":
+                        resolveAddAgentTagsCallback(message.callbackId, Boolean(message.added));
                         break;
 
                     case "onSecretExpiry":

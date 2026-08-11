@@ -329,6 +329,14 @@ export class Agent {
             params.append("pinDisclosure", "true");
         }
 
+        if (options.disclosurePlacement && options.disclosurePlacement !== "conversation") {
+            params.append("disclosurePlacement", options.disclosurePlacement);
+        }
+
+        if (options.removeInputDivider) {
+            params.append("removeInputDivider", "true");
+        }
+
         if (options.useConfiguredChatStrings) {
             params.append("useConfiguredChatStrings", "true");
         }

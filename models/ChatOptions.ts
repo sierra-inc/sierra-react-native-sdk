@@ -158,7 +158,9 @@ export interface ChatOptions {
 
     /**
      * If true, an end conversation button is shown in the chat footer (above the input) while the
-     * user is speaking with a live agent. Only effective when `canEndConversation` is true.
+     * user is waiting for or speaking with a live agent. While waiting, the agent's transfer
+     * waiting message takes precedence when the agent has it enabled. Only effective when
+     * `canEndConversation` is true.
      */
     footerEndConversationButton?: boolean;
 
@@ -184,9 +186,27 @@ export interface ChatOptions {
 
     /**
      * Pin the disclosure text to the top of the chat frame so that it is visible throughout
-     * the conversation and never scrolls out of view.
+     * the conversation and never scrolls out of view. This controls where the disclosure sits
+     * within the conversation view, and has no effect when disclosurePlacement is
+     * "conversationList".
      */
     pinDisclosure?: boolean;
+
+    /**
+     * Which view(s) the disclosure text is displayed in. Defaults to "conversation".
+     *
+     * - "conversation": above the conversation transcript.
+     * - "conversationList": centered below the "start new chat" button in the conversation
+     *   list, and not shown in the conversation itself. Requires enableConversationList.
+     * - "both": displayed in both views.
+     */
+    disclosurePlacement?: "conversation" | "conversationList" | "both";
+
+    /**
+     * When true, removes the divider (top border) drawn between the chat transcript and the
+     * message input area. Defaults to false.
+     */
+    removeInputDivider?: boolean;
 
     /**
      * Whether to show timestamps on chat messages. If not set, the server-configured value

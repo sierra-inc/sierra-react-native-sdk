@@ -12,7 +12,11 @@ import { type ChatOptions } from "./models/ChatOptions";
 import { PersistenceMode } from "./models/PersistenceMode";
 import { ConversationStorage, type StorageAdapter } from "./models/ConversationStorage";
 import SierraAgentView from "./components/SierraAgentView";
-import { type SierraAgentViewHandle } from "./components/SierraAgentView";
+import {
+    type AddAgentTagsOptions,
+    type SierraAgentViewHandle,
+    type UserAttachment,
+} from "./components/SierraAgentView";
 
 export {
     Agent,
@@ -23,7 +27,9 @@ export {
     type SecretExpiryResult,
     type SecretExpiryReplyHandler,
     SierraAgentView,
+    type AddAgentTagsOptions,
     type SierraAgentViewHandle,
+    type UserAttachment,
     AgentAPIHostType,
     PersistenceMode,
     ConversationStorage,

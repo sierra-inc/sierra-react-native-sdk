@@ -8,6 +8,11 @@ export interface ChatStyleColors {
     background?: string;
     text?: string;
     border?: string;
+    /**
+     * The background color of the message input area (the region below the divider
+     * that contains the text input). When omitted, falls back to `background`.
+     */
+    inputBackground?: string;
     titleBar?: string;
     titleBarText?: string;
     assistantBubble?: string;
@@ -110,6 +115,8 @@ export interface ChatStyleTypography {
     titleBar?: ChatTextStyle;
     /** Typography overrides for the disclosure (disclaimer) text. */
     disclosure?: ChatTextStyle;
+    /** Typography overrides for the message input text. */
+    messageInput?: ChatTextStyle;
 }
 
 /**

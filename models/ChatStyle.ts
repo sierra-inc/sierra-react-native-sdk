@@ -1,7 +1,14 @@
 // Copyright Sierra
 
+import { type ChatButtonStyle } from "./ChatButtonStyle";
+
 /**
  * Type for ChatStyleColors options.
+ * Color values accept `#RRGGBB` hex strings. The `background`, `assistantBubble`,
+ * `humanAgentBubble`, `userBubble`, `assistantBubbleBorder`, `humanAgentBubbleBorder`,
+ * `userBubbleBorder`, `inputPlaceholder`, `disclosure`, and `disclosureLink` colors also accept
+ * `#RRGGBBAA`, where the last pair of digits sets the opacity. Every other color must be fully
+ * opaque.
  * Overridden by server-configured styles if useConfiguredStyle is true in ChatOptions.
  */
 export interface ChatStyleColors {
@@ -13,10 +20,33 @@ export interface ChatStyleColors {
      * that contains the text input). When omitted, falls back to `background`.
      */
     inputBackground?: string;
+    /**
+     * The color of the message composer's border, drawn when
+     * `ChatComposerStyle.borderWidth` is set. When omitted, falls back to `border`.
+     */
+    inputBorder?: string;
+    /**
+     * The message composer border color while the input is focused. Only
+     * applies when `ChatComposerStyle` gives the composer its own surface and
+     * sets `borderWidth`. When omitted, `inputBorder` remains in use while
+     * focused.
+     */
+    inputFocusBorder?: string;
+    /**
+     * The color of the text the user types in the message input. When omitted,
+     * falls back to `text`.
+     */
+    inputText?: string;
     titleBar?: string;
     titleBarText?: string;
     assistantBubble?: string;
     assistantBubbleText?: string;
+    /** Human-agent bubble background. Defaults to `assistantBubble`, including opacity. */
+    humanAgentBubble?: string;
+    /** Human-agent bubble text color. Defaults to `assistantBubbleText`. */
+    humanAgentBubbleText?: string;
+    /** Human-agent bubble link color. Defaults to `assistantBubbleLink`. */
+    humanAgentBubbleLink?: string;
     userBubble?: string;
     userBubbleText?: string;
     /**
@@ -35,7 +65,7 @@ export interface ChatStyleColors {
     /**
      * The color of the placeholder text shown in the message input, also used for
      * the send button arrow when the input is empty. When omitted, falls back to
-     * `text` at reduced opacity; when set, it is used at full opacity.
+     * `inputText` at reduced opacity; when set, its configured opacity is used.
      */
     inputPlaceholder?: string;
     /**
@@ -44,14 +74,27 @@ export interface ChatStyleColors {
      * does not contrast well with `background` in light or dark mode.
      */
     uploadButtonIcon?: string;
-    /** The color of the disclosure (disclaimer) text. When omitted, the default disclosure text color is used. */
+    /**
+     * The color of the disclosure (disclaimer) text. When omitted, defaults to
+     * `text` at 65% opacity; when set, its configured opacity is used.
+     */
     disclosure?: string;
-    /** The color of links within the disclosure (disclaimer) text. */
+    /**
+     * The color of links within the disclosure (disclaimer) text. When omitted,
+     * defaults to `assistantBubbleLink` at 65% opacity; when set, its configured
+     * opacity is used.
+     */
     disclosureLink?: string;
     /** The color of links in chat bubbles for messages from the user. */
     userBubbleLink?: string;
     /** The color of links in chat bubbles for messages from the AI assistant. */
     assistantBubbleLink?: string;
+    /** The border color for AI assistant chat bubbles. When omitted, no border is drawn. */
+    assistantBubbleBorder?: string;
+    /** The border color for user chat bubbles. When omitted, no border is drawn. */
+    userBubbleBorder?: string;
+    /** Human-agent bubble border color. Defaults to `assistantBubbleBorder`. */
+    humanAgentBubbleBorder?: string;
 }
 
 /**
@@ -93,6 +136,8 @@ export interface ChatTextStyle {
     fontStyle?: "normal" | "italic";
     /** Styling overrides for hyperlinks within this region's text. */
     link?: ChatLinkStyle;
+    /** Text alignment. When omitted, keeps the region's default alignment. */
+    textAlign?: "left" | "center" | "right" | "start" | "end";
 }
 
 /**
@@ -127,4 +172,62 @@ export interface ChatStyleTypography {
 export interface ChatStyleOptions {
     colors?: ChatStyleColors;
     typography?: ChatStyleTypography;
+}
+
+/**
+ * Insets for one edge box of the message composer, in pixels. `start` and `end`
+ * are logical, so one set of insets is correct in both layout directions.
+ */
+export interface ChatComposerInsets {
+    /** Inset from the top edge. */
+    top?: number;
+    /** Inset from the leading edge (left in LTR, right in RTL). */
+    start?: number;
+    /** Inset from the bottom edge. */
+    bottom?: number;
+    /** Inset from the trailing edge (right in LTR, left in RTL). */
+    end?: number;
+}
+
+/**
+ * Layout overrides for the message composer (the text input and its action buttons).
+ * Every field is optional and overrides only its own default, so an omitted
+ * `composerStyle` leaves the composer unchanged. Supplying `outerInsets` insets the
+ * composer from the edges of the chat and paints the `inputBackground` color on the
+ * composer itself, so the inset gutter shows the chat background.
+ *
+ * Composer colors stay in `ChatStyleColors`: `inputBackground`, `inputBorder`,
+ * `inputFocusBorder`, `inputText`, and `inputPlaceholder`.
+ */
+export interface ChatComposerStyle {
+    /** Space between the edges of the chat and the composer. */
+    outerInsets?: ChatComposerInsets;
+    /**
+     * Space between the composer's edges and its content. Replaces the default
+     * padding around the text input and its action buttons.
+     */
+    contentInsets?: ChatComposerInsets;
+    /** Minimum height of the composer. */
+    minimumHeight?: number;
+    /** Number of lines the text input grows to before it starts scrolling. */
+    maximumLines?: number;
+    /** Corner radius of the composer. */
+    cornerRadius?: number;
+    /** Width of the composer's border. Drawn in `ChatStyleColors.inputBorder`. */
+    borderWidth?: number;
+    /** Width and height of the send and upload buttons. */
+    actionButtonSize?: number;
+    /**
+     * Width and height of the send and upload button glyphs. The rendered size is
+     * clamped to the effective action button size. Does not resize SVGs that
+     * replace the complete send button.
+     */
+    actionIconSize?: number;
+}
+
+/** Style overrides for inline end-conversation confirmation. Omitted fields keep their defaults. */
+export interface EndConversationConfirmationStyle {
+    showFooterDivider?: boolean;
+    confirmButton?: ChatButtonStyle;
+    cancelButton?: ChatButtonStyle;
 }

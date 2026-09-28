@@ -34,6 +34,7 @@ const REVEAL_FALLBACK_MS = 10_000;
  */
 const REVEAL_HARD_TIMEOUT_MS = 30_000;
 const ADD_AGENT_TAGS_TIMEOUT_MS = 30_000;
+const USER_IDENTITY_TOKEN_HEADER = "X-Sierra-User-Identity-Token";
 
 /**
  * U+2028 and U+2029 are valid in JSON strings but line terminators in JavaScript source, so JSON
@@ -41,6 +42,15 @@ const ADD_AGENT_TAGS_TIMEOUT_MS = 30_000;
  */
 function escapeJsLineSeparators(json: string): string {
     return json.replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+}
+
+/**
+ * The initial document request carries the identity token as a header so the embed can resolve
+ * the conversation without the token in the URL. As on iOS and Android, only this host-driven
+ * load supplies the header; navigations the page starts itself are left alone.
+ */
+function identityHeaders(identityToken: string | undefined): Record<string, string> | undefined {
+    return identityToken ? { [USER_IDENTITY_TOKEN_HEADER]: identityToken } : undefined;
 }
 
 interface SierraAgentViewProps {
@@ -56,6 +66,12 @@ interface SierraAgentViewProps {
      * be replaced by the original one.
      */
     conversationState?: string;
+    /**
+     * External conversation ID associated with an existing conversation. Requires the matching
+     * userIdentityToken in the Agent's ChatOptions. Do not provide this together with
+     * conversationState.
+     */
+    conversationID?: string;
     style?: ViewStyle;
     renderLoading?: () => ReactElement;
     onConversationTransfer?: (transfer: ConversationTransfer) => void;
@@ -124,6 +140,10 @@ type WebViewMessage =
           callbackId: string;
       }
     | {
+          type: "getInitialConversation";
+          callbackId: string;
+      }
+    | {
           type: "onShowConversationList";
       }
     | {
@@ -171,6 +191,7 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
         {
             agent,
             conversationState,
+            conversationID,
             style,
             renderLoading,
             onConversationTransfer,
@@ -217,7 +238,7 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
             (delayMs: number) => {
                 // Restart from a clean slate so each call gets a full window: the resume-budget
                 // timer (armed on onOpen) replaces the mount-armed hard net, and a timer still
-                // pending from a previous embedUrl can't fire early for the new load.
+                // pending from a previous document can't fire early for the new load.
                 clearRevealFallbackTimer();
                 revealFallbackTimerRef.current = setTimeout(() => {
                     revealFallbackTimerRef.current = null;
@@ -251,14 +272,24 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
             pending.resolve(added);
         }, []);
 
-        const embedUrl = useMemo(() => {
-            const baseUrl = agent.getEmbedUrl();
-            if (!conversationState) {
-                return baseUrl;
-            }
-            const separator = baseUrl.includes("?") ? "&" : "?";
-            return `${baseUrl}${separator}state=${encodeURIComponent(conversationState)}`;
-        }, [agent, conversationState]);
+        const configuredInitialConversation = useMemo(
+            () => agent.getInitialConversation(conversationState, conversationID),
+            [agent, conversationState, conversationID]
+        );
+        const configuredEmbedUrl = useMemo(() => agent.getEmbedUrl(), [agent]);
+        // A new document is created only when the embed URL or the configured initial
+        // conversation changes.
+        const bootstrapKey = useMemo(
+            () => JSON.stringify([configuredEmbedUrl, configuredInitialConversation]),
+            [configuredEmbedUrl, configuredInitialConversation]
+        );
+        const source = useMemo(
+            () => ({
+                uri: configuredEmbedUrl,
+                headers: identityHeaders(configuredInitialConversation.userIdentityToken),
+            }),
+            [configuredEmbedUrl, configuredInitialConversation]
+        );
 
         useImperativeHandle(ref, () => ({
             get webView() {
@@ -362,20 +393,15 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
         // regression in that bridge. The shorter resume budget is armed later, when onOpen reports
         // a resumed conversation; revealContent() cancels whichever timer is pending.
         //
-        // Re-entering on embedUrl changes matters because the WebView navigates to a new URL (and
-        // re-resumes) when conversationState or agent changes; without re-hiding, the previous
-        // reveal would leave the overlay off and flash the new conversation's empty state.
+        // Re-hide when the agent or bootstrap changes so the previous reveal cannot expose
+        // the new conversation before it is ready.
         useEffect(() => {
             if (!isStorageReady) {
                 return;
             }
             setContentReady(false);
             scheduleRevealFallback(REVEAL_HARD_TIMEOUT_MS);
-        }, [isStorageReady, embedUrl, scheduleRevealFallback]);
-
-        const setWebViewRef = useCallback((instance: WebView | null) => {
-            webViewRef.current = instance;
-        }, []);
+        }, [bootstrapKey, isStorageReady, scheduleRevealFallback]);
 
         // Handle messages from the WebViewMessageEvent
         const handleMessage = (event: any) => {
@@ -489,6 +515,16 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
                         }
                         break;
 
+                    case "getInitialConversation":
+                        // The embed asks when injectedJavaScriptBeforeContentLoaded ran after the
+                        // page started (possible on Android). Answer with the same payload.
+                        webViewRef.current?.injectJavaScript(
+                            escapeJsLineSeparators(
+                                `window.__sierraResolveCallback(${JSON.stringify(message.callbackId)}, ${JSON.stringify(JSON.stringify(configuredInitialConversation))}); true;`
+                            )
+                        );
+                        break;
+
                     case "onUserIdentityTokenExpiry":
                         if (onUserIdentityTokenExpiry) {
                             onUserIdentityTokenExpiry(result => {
@@ -514,11 +550,22 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
             }
         };
 
+        const loadingBackgroundColor =
+            (StyleSheet.flatten(style)?.backgroundColor as string | undefined) ??
+            agent.getChatBackgroundColor();
+
         // Show loading state while waiting for storage to load from disk.
         // This prevents the WebView from initializing with empty storage.
         if (!isStorageReady) {
             return (
-                <View style={[styles.container, styles.loadingContainer, style]}>
+                <View
+                    style={[
+                        styles.container,
+                        styles.loadingContainer,
+                        { backgroundColor: loadingBackgroundColor },
+                        style,
+                    ]}
+                >
                     {renderLoading ? renderLoading() : <ActivityIndicator size="large" />}
                 </View>
             );
@@ -526,26 +573,25 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
 
         // Build the injection script with current storage state and capability advertisement.
         // Storage is guaranteed to be loaded at this point. __sierraMobileCapabilities lets the
-        // web embed avoid registering bridge functions this SDK build can't service.
-        const bootstrapScript = `
+        // web embed avoid registering bridge functions this SDK build can't service. The embed
+        // falls back to a getInitialConversation request when this script runs late.
+        const bootstrapScript = escapeJsLineSeparators(`
             window.__sierraSyncStorage = ${JSON.stringify(agent.getStorage().getAll())};
             window.__sierraMobileCapabilities = { onUserIdentityTokenExpiry: true };
             window.__sierraInitialMemory = ${JSON.stringify(agent.getInitialMemory())};
+            window.__sierraInitialConversation = ${JSON.stringify(configuredInitialConversation)};
             true;
-        `;
-
-        // Match the loading overlay background to any background color the host supplied via
-        // `style`, so the overlay fully hides the WebView (which would otherwise flash white).
-        const overlayBackgroundColor =
-            (StyleSheet.flatten(style)?.backgroundColor as string | undefined) ?? "white";
+        `);
 
         return (
             <View style={[styles.container, style]}>
                 <WebView
+                    // New credentials or a new configured conversation must start a new document.
+                    key={bootstrapKey}
                     userAgent={getUserAgent()}
-                    ref={setWebViewRef}
-                    source={{ uri: embedUrl }}
-                    style={styles.webView}
+                    ref={webViewRef}
+                    source={source}
+                    style={[styles.webView, !contentReady && styles.hiddenWebView]}
                     onMessage={handleMessage}
                     injectedJavaScriptBeforeContentLoaded={bootstrapScript}
                     onError={(error: WebViewErrorEvent) => {
@@ -567,7 +613,7 @@ const SierraAgentView = forwardRef<SierraAgentViewHandle, SierraAgentViewProps>(
                 />
                 {!contentReady && (
                     <View
-                        style={[styles.loadingOverlay, { backgroundColor: overlayBackgroundColor }]}
+                        style={[styles.loadingOverlay, { backgroundColor: loadingBackgroundColor }]}
                     >
                         {renderLoading ? renderLoading() : <ActivityIndicator size="large" />}
                     </View>
@@ -588,6 +634,10 @@ const styles = StyleSheet.create({
     webView: {
         flex: 1,
         zIndex: 0,
+        backgroundColor: "transparent",
+    },
+    hiddenWebView: {
+        opacity: 0,
     },
     loadingOverlay: {
         ...StyleSheet.absoluteFillObject,

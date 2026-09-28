@@ -6,6 +6,16 @@ import { ChatStyleOptions } from "./models/ChatStyle";
 import { PersistenceMode } from "./models/PersistenceMode";
 import { ConversationStorage, StorageAdapter } from "./models/ConversationStorage";
 
+type InitialConversationTarget =
+    | { kind: "none" }
+    | { kind: "state"; state: string }
+    | { kind: "conversationID"; conversationID: string };
+
+type InitialConversation = {
+    userIdentityToken?: string;
+    target: InitialConversationTarget;
+};
+
 /**
  * Main agent class that handles Sierra chat functionality
  */
@@ -96,6 +106,13 @@ export class Agent {
         return this.url;
     }
 
+    /** @internal Used by SierraAgentView before the embedded chat renders. */
+    getChatBackgroundColor(): string {
+        return this.options.useConfiguredStyle
+            ? "transparent"
+            : (this.options.chatStyle?.colors?.background ?? "#FFFFFF");
+    }
+
     getEmbedOrigin(): string {
         try {
             const url = new URL(this.url);
@@ -126,13 +143,31 @@ export class Agent {
         return memory;
     }
 
+    /** @internal Identity and resume inputs for the pre-load native bridge. */
+    getInitialConversation(
+        conversationState?: string,
+        conversationID?: string
+    ): InitialConversation {
+        const userIdentityToken = this.options.userIdentityToken?.length
+            ? this.options.userIdentityToken
+            : undefined;
+        const target: InitialConversation["target"] = conversationState
+            ? { kind: "state", state: conversationState }
+            : conversationID && userIdentityToken
+              ? { kind: "conversationID", conversationID }
+              : { kind: "none" };
+        return { userIdentityToken, target };
+    }
+
     private buildUrl(options: ChatOptions): string {
         const { config } = this;
         const DEFAULT_GREETING_MESSAGE = "How can I help you today?";
 
         const params = new URLSearchParams();
         const shouldOmitDefaultChatStrings =
-            options.autoDetectChatStrings === true || options.useConfiguredChatStrings === true;
+            options.autoDetectChatStrings === true ||
+            options.autoUpdateChatStrings === true ||
+            options.useConfiguredChatStrings === true;
 
         // Add the specific release target for the agent
         if (config.target) {
@@ -183,6 +218,9 @@ export class Agent {
                       ...(options.showAvatars != null && {
                           showAvatars: options.showAvatars,
                       }),
+                      ...(options.hideBubbleTails != null && {
+                          hideBubbleTails: options.hideBubbleTails,
+                      }),
                       ...(options.agentAvatarURL != null && {
                           agentAvatarURL: options.agentAvatarURL,
                       }),
@@ -191,6 +229,9 @@ export class Agent {
                       }),
                       ...(options.sendButtonDisabledSVG != null && {
                           sendButtonDisabledSVG: options.sendButtonDisabledSVG,
+                      }),
+                      ...(options.uploadButtonIconSVG != null && {
+                          uploadButtonIconSVG: options.uploadButtonIconSVG,
                       }),
                       messageLabelPlacement: options.messageLabelPlacement ?? "",
                   }
@@ -221,6 +262,9 @@ export class Agent {
                       ...(options.showAvatars != null && {
                           showAvatars: options.showAvatars,
                       }),
+                      ...(options.hideBubbleTails != null && {
+                          hideBubbleTails: options.hideBubbleTails,
+                      }),
                       ...(options.agentAvatarURL != null && {
                           agentAvatarURL: options.agentAvatarURL,
                       }),
@@ -229,6 +273,9 @@ export class Agent {
                       }),
                       ...(options.sendButtonDisabledSVG != null && {
                           sendButtonDisabledSVG: options.sendButtonDisabledSVG,
+                      }),
+                      ...(options.uploadButtonIconSVG != null && {
+                          uploadButtonIconSVG: options.uploadButtonIconSVG,
                       }),
                       messageLabelPlacement: options.messageLabelPlacement ?? "",
                   }
@@ -274,6 +321,10 @@ export class Agent {
 
         // Use custom persistence mode to store and load chat session data across views
         params.append("persistenceMode", "custom");
+        // Tells the embed that SierraAgentView answers getInitialConversation requests, so a
+        // pre-load script that runs late on Android does not start the chat anonymously. Matches
+        // INITIAL_CONVERSATION_BRIDGE_PARAM in the web embed.
+        params.append("initialConversationBridge", "true");
 
         const conversationOptions = options.conversationOptions ?? {};
 
@@ -312,6 +363,18 @@ export class Agent {
         if (options.footerEndConversationButton) {
             params.append("footerEndConversationButton", "true");
         }
+        if (options.footerEndConversationButtonStyle) {
+            params.append(
+                "footerEndConversationButtonStyle",
+                JSON.stringify(options.footerEndConversationButtonStyle)
+            );
+        }
+        if (options.messageInputPresetAction) {
+            params.append(
+                "messageInputPresetAction",
+                JSON.stringify(options.messageInputPresetAction)
+            );
+        }
 
         if (options.canStartNewChat) {
             params.append("canStartNewChat", "true");
@@ -329,12 +392,39 @@ export class Agent {
             params.append("pinDisclosure", "true");
         }
 
+        if (options.disclosurePosition) {
+            params.append("disclosurePosition", options.disclosurePosition);
+        }
+
+        if (options.hideDisclosureDuringLiveChat) {
+            params.append("hideDisclosureDuringLiveChat", "true");
+        }
+
         if (options.disclosurePlacement && options.disclosurePlacement !== "conversation") {
             params.append("disclosurePlacement", options.disclosurePlacement);
         }
 
         if (options.removeInputDivider) {
             params.append("removeInputDivider", "true");
+        }
+
+        if (options.composerStyle && Object.keys(options.composerStyle).length > 0) {
+            params.append("composerStyle", JSON.stringify(options.composerStyle));
+        }
+        if (
+            options.endConversationConfirmationStyle &&
+            Object.keys(options.endConversationConfirmationStyle).length > 0
+        ) {
+            params.append(
+                "endConversationConfirmationStyle",
+                JSON.stringify(options.endConversationConfirmationStyle)
+            );
+        }
+        if (
+            options.conversationEndedStyle &&
+            Object.keys(options.conversationEndedStyle).length > 0
+        ) {
+            params.append("conversationEndedStyle", JSON.stringify(options.conversationEndedStyle));
         }
 
         if (options.useConfiguredChatStrings) {
@@ -349,12 +439,12 @@ export class Agent {
             params.append("autoDetectChatStrings", String(options.autoDetectChatStrings));
         }
 
-        if (options.textDirection) {
-            params.append("textDirection", options.textDirection);
+        if (options.autoUpdateChatStrings !== undefined) {
+            params.append("autoUpdateChatStrings", String(options.autoUpdateChatStrings));
         }
 
-        if (options.userIdentityToken) {
-            params.append("userIdentityToken", options.userIdentityToken);
+        if (options.textDirection) {
+            params.append("textDirection", options.textDirection);
         }
 
         if (options.enableConversationList) {

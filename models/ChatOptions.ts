@@ -1,6 +1,8 @@
 // Copyright Sierra
 
-import { ChatStyleOptions } from "./ChatStyle";
+import { ChatButtonStyle, MessageInputPresetAction } from "./ChatButtonStyle";
+import { ChatComposerStyle, ChatStyleOptions, EndConversationConfirmationStyle } from "./ChatStyle";
+import type { ChatConversationEndedStyle } from "./ChatConversationEndedStyle";
 import { ConversationOptions } from "./ConversationTypes";
 
 /**
@@ -19,7 +21,8 @@ export interface ChatOptions {
 
     /**
      * Use styling configured on the server (colors, typography, logo, etc.).
-     * When enabled, server-configured styles take precedence over local chatStyle.
+     * When enabled, non-empty server-configured style fields take precedence over the corresponding
+     * local fields. Local values remain as fallbacks.
      * @default false
      */
     useConfiguredStyle?: boolean;
@@ -102,17 +105,26 @@ export interface ChatOptions {
 
     /**
      * Inline SVG markup for the chat send button. Replaces the default send arrow (including
-     * its background) when provided. Overridden by the server-configured value if useConfiguredStyle
-     * is true.
+     * its background) when provided. When both the SDK and server provide a value, the
+     * server-configured value takes precedence if useConfiguredStyle is true.
      */
     sendButtonSVG?: string;
 
     /**
      * Inline SVG markup for the send button when it is disabled (e.g. the input is empty).
-     * Falls back to sendButtonSVG when not provided. Overridden by the server-configured value
-     * if useConfiguredStyle is true.
+     * Falls back to sendButtonSVG when not provided. When both the SDK and server provide a value,
+     * the server-configured value takes precedence if useConfiguredStyle is true.
      */
     sendButtonDisabledSVG?: string;
+
+    /**
+     * Inline SVG markup for the file upload button icon. Replaces only the default
+     * photo/paperclip glyph; the button keeps its behavior and accessible label. Paths that use
+     * `currentColor` (or omit a fill) take chatStyle.colors.uploadButtonIcon; explicit SVG colors
+     * win. When both the SDK and server provide a value, the server-configured value takes
+     * precedence if useConfiguredStyle is true.
+     */
+    uploadButtonIconSVG?: string;
 
     /** Hide the title bar at the top of the chat UI. */
     hideTitleBar?: boolean;
@@ -157,12 +169,16 @@ export interface ChatOptions {
     confirmEndConversation?: boolean;
 
     /**
-     * If true, an end conversation button is shown in the chat footer (above the input) while the
-     * user is waiting for or speaking with a live agent. While waiting, the agent's transfer
-     * waiting message takes precedence when the agent has it enabled. Only effective when
+     * If true, an end conversation button is shown in the input area, below the transcript divider,
+     * while the user is waiting for or speaking with a live agent. While waiting, the agent's
+     * transfer waiting message takes precedence when the agent has it enabled. Only effective when
      * `canEndConversation` is true.
      */
     footerEndConversationButton?: boolean;
+    /** Optional style for the input-area end conversation button. */
+    footerEndConversationButtonStyle?: ChatButtonStyle;
+    /** Optional text-message action above the composer. */
+    messageInputPresetAction?: MessageInputPresetAction;
 
     /**
      * If true, a "new chat" button is shown on the conversation view after the conversation
@@ -185,12 +201,23 @@ export interface ChatOptions {
     showScrollToBottom?: boolean;
 
     /**
-     * Pin the disclosure text to the top of the chat frame so that it is visible throughout
-     * the conversation and never scrolls out of view. This controls where the disclosure sits
-     * within the conversation view, and has no effect when disclosurePlacement is
-     * "conversationList".
+     * Retained for backward compatibility. When `disclosurePosition` is unset,
+     * `true` is equivalent to `disclosurePosition: "pinnedAboveTranscript"`.
+     * Has no effect when `disclosurePlacement` is `"conversationList"`.
      */
     pinDisclosure?: boolean;
+
+    /**
+     * Where the disclosure sits within the conversation view. Defaults to
+     * "scrollingInTranscript" unless pinDisclosure is true.
+     * This takes precedence over pinDisclosure.
+     */
+    disclosurePosition?: "scrollingInTranscript" | "pinnedAboveTranscript" | "pinnedBelowComposer";
+
+    /**
+     * Hide the conversation disclosure while waiting for or speaking with a live agent.
+     */
+    hideDisclosureDuringLiveChat?: boolean;
 
     /**
      * Which view(s) the disclosure text is displayed in. Defaults to "conversation".
@@ -209,14 +236,25 @@ export interface ChatOptions {
     removeInputDivider?: boolean;
 
     /**
-     * Whether to show timestamps on chat messages. If not set, the server-configured value
-     * from the Style panel is used.
+     * Layout overrides for the message composer (insets, height, corner radius, border, and
+     * action button size). When omitted, the composer keeps its default layout.
+     */
+    composerStyle?: ChatComposerStyle;
+    /** Style overrides for inline end-conversation confirmation. */
+    endConversationConfirmationStyle?: EndConversationConfirmationStyle;
+    /** Layout of the ended message and its optional new-conversation action. */
+    conversationEndedStyle?: ChatConversationEndedStyle;
+
+    /**
+     * Whether to show timestamps on chat messages. When `useConfiguredStyle` is true, a non-default
+     * server-configured value takes precedence over this local value.
      */
     showTimestamps?: boolean;
 
     /**
-     * Whether to show speaker labels (e.g. the agent name) on chat messages. If not set,
-     * the server-configured value from the Style panel is used.
+     * Whether to show speaker labels (e.g. the agent name) on chat messages. When
+     * `useConfiguredStyle` is true, a non-default server-configured value takes precedence over
+     * this local value.
      */
     showSpeakerLabels?: boolean;
 
@@ -224,41 +262,56 @@ export interface ChatOptions {
      * Whether or not to show per-message avatars for agents. When enabled, the
      * chat shows avatars next to live agent messages using image URLs provided
      * by the contact center. If `agentAvatarURL` is also set, that image is
-     * shown next to virtual agent messages. If not set, the server-configured
-     * value from the Style panel is used.
+     * shown next to virtual agent messages. When `useConfiguredStyle` is true,
+     * a non-default server-configured value takes precedence over this local value.
      */
     showAvatars?: boolean;
 
     /**
+     * Whether to hide all chat bubble tails. When `useConfiguredStyle` is true, a non-default
+     * server-configured value takes precedence over this local value.
+     */
+    hideBubbleTails?: boolean;
+
+    /**
      * HTTPS URL of an image to show next to virtual agent messages when
      * `showAvatars` is enabled. Values are trimmed and must be 2048 characters
-     * or fewer. If not set, the server-configured value from the Style panel is
-     * used.
+     * or fewer. When `useConfiguredStyle` is true, a non-empty server-configured value takes
+     * precedence over this local value.
      */
     agentAvatarURL?: string;
 
     /**
      * Controls whether the message label (speaker name and timestamp) is shown above or below
-     * chat message bubbles. When not set and useConfiguredStyle is true, the server-configured
-     * value from the Style panel is used.
+     * chat message bubbles. When `useConfiguredStyle` is true, a server-configured value takes
+     * precedence over this local value.
      */
     messageLabelPlacement?: "above" | "below";
 
     /**
-     * Explicitly set whether or not to auto-detect locale-specific chat strings and text direction
-     * from the conversation locale.
+     * Whether chat interface strings (button labels, tooltips, etc.) and text direction are
+     * automatically localized from the conversation locale at the start of the conversation.
+     * When not set and useConfiguredChatStrings is true, the server-configured value is used.
      */
     autoDetectChatStrings?: boolean;
 
     /**
-     * Explicitly set the text direction of the chat window.
+     * Whether chat interface strings (button labels, tooltips, etc.) and text direction are
+     * automatically updated when the agent changes the conversation locale mid-conversation.
+     * When not set and useConfiguredChatStrings is true, the server-configured value is used.
+     */
+    autoUpdateChatStrings?: boolean;
+
+    /**
+     * Explicitly set the text direction of the chat window, taking precedence over
+     * autoDetectChatStrings and autoUpdateChatStrings:
      * - `"ltr"`: Forces the chat window to use a left-to-right language layout.
      * - `"rtl"`: Forces the chat window to use a right-to-left language layout.
-     * - `"auto"`: Text direction is automatically configured from the conversation locale.
-     * When not set, automatically determined from locale if auto-detection is active --
-     * either via `autoDetectChatStrings` or the server's Agent Studio configuration
-     * when `useConfiguredChatStrings` is true. Otherwise falls back to the server
-     * value when `useConfiguredChatStrings` is true, or left-to-right.
+     * - `"auto"`: Text direction automatically follows the conversation locale.
+     * When not set, text direction follows the conversation locale if autoDetectChatStrings
+     * is active or once autoUpdateChatStrings applies a mid-conversation locale change.
+     * Otherwise, follows the Agent Studio "Text direction" setting if
+     * useConfiguredChatStrings is true; otherwise defaults to left-to-right.
      */
     textDirection?: "ltr" | "rtl" | "auto";
 
